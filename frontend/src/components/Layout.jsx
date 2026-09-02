@@ -1,13 +1,18 @@
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Menu, Plus, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { Navbar } from "./Navbar";
 import { useLeave } from "../context/useLeave";
+import { isSuperiorAdmin } from "../services/auth";
 
 export const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { toastMessage, currentUser } = useLeave();
+  const { toastMessage, currentUser, loggedInUser } = useLeave();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const activeUser = loggedInUser || currentUser;
+  const isSuperior = isSuperiorAdmin(activeUser);
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -17,15 +22,17 @@ export const Layout = () => {
       case "/apply-leave":
         return "Apply for Leave";
       case "/my-leaves":
-        return "My Leave History";
+        return "My Leave Applications";
       case "/substitute-requests":
         return "Substitute Duty Requests";
       case "/admin":
-        return "Admin Approval Dashboard";
+        return "Team Admin Dashboard";
+      case "/superior":
+        return "Superior Admin Monitoring";
       case "/profile":
-        return "Employee Profile";
+        return "My Profile & Quotas";
       default:
-        return "Leave Management System";
+        return "LeaveEase Portal";
     }
   };
 
@@ -33,20 +40,28 @@ export const Layout = () => {
     switch (location.pathname) {
       case "/":
       case "/dashboard":
-        return `Welcome back, ${currentUser.fullName}. Here is your leave summary.`;
+        return `Welcome back, ${activeUser.name || activeUser.fullName}. Here is your active leave summary.`;
       case "/apply-leave":
-        return "Submit a new leave application or time permission request.";
+        return "Submit a new leave application or short time permission request.";
       case "/my-leaves":
-        return "Track approval status and details for all your applied leaves.";
+        return "Track real-time approval status and details for all your applied leaves.";
       case "/substitute-requests":
-        return "Review and respond to colleagues requesting you as their substitute.";
+        return "Review and respond to colleague substitute requests delegated to you.";
       case "/admin":
-        return "Manage and review team leave applications.";
+        return "Review, approve, and manage leave requests for your team members.";
+      case "/superior":
+        return "Organization-wide real-time leave monitoring and team attendance metrics.";
       case "/profile":
-        return "View your personal profile details, team information, and leave quotas.";
+        return "View your account details, department assignment, and annual leave quotas.";
       default:
         return "";
     }
+  };
+
+  const renderToastIcon = (type) => {
+    if (type === "success") return <CheckCircle2 size={16} />;
+    if (type === "warning") return <AlertCircle size={16} />;
+    return <Info size={16} />;
   };
 
   return (
@@ -74,11 +89,7 @@ export const Layout = () => {
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-              </svg>
+              <Menu size={20} />
             </button>
             <div className="page-heading">
               <h1 className="page-title">{getPageTitle()}</h1>
@@ -87,24 +98,30 @@ export const Layout = () => {
           </div>
 
           <div className="header-right">
-            <button
-              className="quick-apply-btn"
-              onClick={() => navigate("/apply-leave")}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              <span>Apply Leave</span>
-            </button>
+            {!isSuperior && (
+              <button
+                className="quick-apply-btn"
+                onClick={() => navigate("/apply-leave")}
+              >
+                <Plus size={15} strokeWidth={2.5} />
+                <span>Apply Leave</span>
+              </button>
+            )}
 
             <div className="header-user-badge" onClick={() => navigate("/profile")}>
               <div className="user-initials">
-                {currentUser.fullName.split(" ").map(n => n[0]).join("")}
+                {(activeUser.name || activeUser.fullName || "User")
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
               </div>
               <div className="user-meta">
-                <span className="user-name-header">{currentUser.fullName}</span>
-                <span className="user-badge-tag">{currentUser.department}</span>
+                <span className="user-name-header">
+                  {activeUser.name || activeUser.fullName}
+                </span>
+                <span className="user-badge-tag">
+                  {activeUser.department || activeUser.team || "Employee"}
+                </span>
               </div>
             </div>
           </div>
@@ -114,7 +131,7 @@ export const Layout = () => {
         {toastMessage && (
           <div className={`toast-notification toast-${toastMessage.type}`}>
             <span className="toast-icon">
-              {toastMessage.type === "success" ? "✓" : "ℹ"}
+              {renderToastIcon(toastMessage.type)}
             </span>
             <span>{toastMessage.message}</span>
           </div>

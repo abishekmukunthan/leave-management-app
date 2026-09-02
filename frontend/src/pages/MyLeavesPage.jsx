@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import {
+  Search,
+  X,
+  RefreshCw,
+  Plus,
+  Calendar,
+  Inbox,
+  Check,
+  AlertCircle,
+} from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { StatusBadge } from "../components/StatusBadge";
 import { getMyLeaves, DEMO_USERS } from "../services/api";
@@ -40,7 +50,6 @@ export const MyLeavesPage = () => {
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
     getMyLeaves(applicantId)
       .then((response) => {
         if (isMounted) { setLeaves(response.data || []); setLoading(false); }
@@ -53,7 +62,6 @@ export const MyLeavesPage = () => {
         }
       });
     return () => { isMounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicantId]);
 
   const filteredLeaves = leaves.filter((leave) => {
@@ -74,10 +82,11 @@ export const MyLeavesPage = () => {
 
   return (
     <div className="leaves-page-container">
+      {/* Controls Bar */}
       <div className="table-controls-bar">
         <div className="filter-tabs">
           <button className={`filter-tab ${activeFilter === "ALL" ? "tab-active" : ""}`} onClick={() => setActiveFilter("ALL")}>
-            All Leaves ({leaves.length})
+            All ({leaves.length})
           </button>
           <button className={`filter-tab ${activeFilter === "PENDING" ? "tab-active" : ""}`} onClick={() => setActiveFilter("PENDING")}>
             Pending ({leaves.filter((l) => l.status === "Waiting for Substitute Approval" || l.status === "Waiting for Admin Approval").length})
@@ -92,45 +101,64 @@ export const MyLeavesPage = () => {
 
         <div className="controls-right">
           <div className="search-input-wrapper">
-            <span className="search-icon">🔍</span>
+            <Search size={14} className="search-icon" />
             <input
               type="text"
-              placeholder="Search leaves..."
+              placeholder="Search leaves by type, reason..."
               className="search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            {searchQuery && <button className="search-clear" onClick={() => setSearchQuery("")}>✕</button>}
+            {searchQuery && (
+              <button className="search-clear" onClick={() => setSearchQuery("")}>
+                <X size={12} />
+              </button>
+            )}
           </div>
-          <button className="secondary-btn" onClick={() => fetchLeaves(true)} title="Refresh">🔄 Refresh</button>
-          <Link to="/apply-leave" className="primary-btn">+ Apply Leave</Link>
+          <button className="secondary-btn" onClick={() => fetchLeaves(true)} title="Refresh Leaves">
+            <RefreshCw size={14} />
+            <span>Refresh</span>
+          </button>
+          <Link to="/apply-leave" className="primary-btn">
+            <Plus size={14} strokeWidth={2.5} />
+            <span>Apply Leave</span>
+          </Link>
         </div>
       </div>
 
       {/* Loading */}
       {loading && (
         <div className="table-card" style={{ padding: "3rem", textAlign: "center" }}>
-          <p>⏳ Loading {applicantName}&apos;s leave requests...</p>
+          <p style={{ color: "#64748b", fontSize: "0.875rem" }}>
+            Loading {applicantName}&apos;s leave requests...
+          </p>
         </div>
       )}
 
       {/* Error */}
       {!loading && error && (
         <div className="form-error-alert" style={{ margin: "1rem 0" }}>
-          <span>⚠️ {error}</span>
-          <button className="secondary-btn" onClick={() => fetchLeaves(true)} style={{ marginLeft: "auto", padding: "0.25rem 0.75rem" }}>Retry</button>
+          <AlertCircle size={16} />
+          <span>{error}</span>
+          <button className="secondary-btn" onClick={() => fetchLeaves(true)} style={{ marginLeft: "auto", padding: "0.25rem 0.75rem" }}>
+            Retry
+          </button>
         </div>
       )}
 
-      {/* Table */}
+      {/* Table Card */}
       {!loading && !error && (
         <div className="table-card">
           {filteredLeaves.length === 0 ? (
             <div className="empty-state">
-              <div className="empty-icon">📂</div>
+              <div className="empty-icon">
+                <Inbox size={24} />
+              </div>
               <h3>No Leave Applications Found</h3>
               <p>{searchQuery ? "No results matched your search." : "No leaves under this filter."}</p>
-              <Link to="/apply-leave" className="secondary-btn">Apply for Leave Now</Link>
+              <Link to="/apply-leave" className="primary-btn" style={{ marginTop: "0.5rem" }}>
+                <Plus size={14} /> Apply for Leave
+              </Link>
             </div>
           ) : (
             <div className="table-responsive">
@@ -158,26 +186,40 @@ export const MyLeavesPage = () => {
                         <td>
                           {leave.leave_type === "Time Permission" ? (
                             <div>
-                              <div>📅 {formatDateOnly(leave.permission_date)}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                <Calendar size={12} className="text-muted" />
+                                <span>{formatDateOnly(leave.permission_date)}</span>
+                              </div>
                               <span className="pill-duration">{leave.permission_hours}</span>
                             </div>
                           ) : (
                             <div>
-                              <div>📅 {formatDateOnly(leave.start_date)} to {formatDateOnly(leave.end_date)}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                <Calendar size={12} className="text-muted" />
+                                <span>{formatDateOnly(leave.start_date)} to {formatDateOnly(leave.end_date)}</span>
+                              </div>
                               {days !== null && <span className="pill-duration">{days} {days === 1 ? "Day" : "Days"}</span>}
                             </div>
                           )}
                         </td>
                         <td>
                           <div>
-                            <span>{leave.substitute_name ? `👤 ${leave.substitute_name}` : "— None —"}</span>
-                            {leave.substitute_status && <span className="text-muted" style={{ display: "block", fontSize: "0.75rem" }}>({leave.substitute_status})</span>}
+                            <span className="substitute-cell">{leave.substitute_name ? leave.substitute_name : "— None —"}</span>
+                            {leave.substitute_status && (
+                              <span className="text-muted" style={{ display: "block", fontSize: "0.75rem" }}>
+                                ({leave.substitute_status})
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td><div className="reason-cell" title={leave.reason}>{leave.reason}</div></td>
                         <td><span className="text-muted">{formatAppliedDate(leave.created_at)}</span></td>
                         <td><StatusBadge status={leave.status} /></td>
-                        <td><button className="table-action-link" onClick={() => setSelectedLeave(leave)}>View Details</button></td>
+                        <td>
+                          <button className="table-action-link" onClick={() => setSelectedLeave(leave)}>
+                            View Details
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -197,7 +239,9 @@ export const MyLeavesPage = () => {
                 <span className="cell-id">{selectedLeave.id}</span>
                 <h2>Leave Application Details</h2>
               </div>
-              <button className="modal-close-btn" onClick={() => setSelectedLeave(null)}>✕</button>
+              <button className="modal-close-btn" onClick={() => setSelectedLeave(null)}>
+                <X size={18} />
+              </button>
             </div>
 
             <div className="modal-body">
@@ -253,8 +297,8 @@ export const MyLeavesPage = () => {
                   <div className="modal-grid-2">
                     <div className="modal-detail-item">
                       <span className="detail-label">Approved By</span>
-                      <span className="detail-value font-semibold text-green">
-                        ✓ {selectedLeave.approver_name || selectedLeave.approved_by || "Priya Fernando"}
+                      <span className="detail-value font-semibold text-green" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                        <Check size={14} strokeWidth={2.5} /> {selectedLeave.approver_name || selectedLeave.approved_by || "Team Lead"}
                       </span>
                     </div>
                     <div className="modal-detail-item">
@@ -271,8 +315,8 @@ export const MyLeavesPage = () => {
                   <div className="modal-grid-2">
                     <div className="modal-detail-item">
                       <span className="detail-label">Rejected By</span>
-                      <span className="detail-value font-semibold text-red">
-                        ✕ {selectedLeave.approver_name || "Admin / Team Lead"}
+                      <span className="detail-value font-semibold text-red" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                        <X size={14} strokeWidth={2.5} /> {selectedLeave.approver_name || "Admin / Team Lead"}
                       </span>
                     </div>
                     <div className="modal-detail-item">

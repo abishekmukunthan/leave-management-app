@@ -4,6 +4,7 @@ import pool from "./config/db.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
 import substituteRoutes from "./routes/substituteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import superiorRoutes from "./routes/superiorRoutes.js";
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.get("/db-test", async (req, res) => {
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/substitute-requests", substituteRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/superior", superiorRoutes);
 
 // 404 Handler
 app.use((req, res) => {

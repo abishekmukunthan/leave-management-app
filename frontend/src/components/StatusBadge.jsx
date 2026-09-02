@@ -1,3 +1,5 @@
+import { CheckCircle2, Clock, Users, XCircle, Check } from "lucide-react";
+
 export const StatusBadge = ({ status }) => {
   const getBadgeClass = (statusStr) => {
     switch (statusStr) {
@@ -19,22 +21,33 @@ export const StatusBadge = ({ status }) => {
   const getStatusIcon = (statusStr) => {
     switch (statusStr) {
       case "Approved":
-        return "✓";
+        return <CheckCircle2 size={12} strokeWidth={2.5} />;
       case "Waiting for Admin Approval":
-        return "⏳";
+        return <Clock size={12} strokeWidth={2.5} />;
       case "Waiting for Substitute Approval":
-        return "👥";
+        return <Users size={12} strokeWidth={2.5} />;
       case "Rejected":
-        return "✕";
+        return <XCircle size={12} strokeWidth={2.5} />;
+      case "Accepted":
+        return <Check size={12} strokeWidth={2.5} />;
       default:
-        return "•";
+        return null;
     }
+  };
+
+  const getStatusLabel = (statusStr) => {
+    if (statusStr === "Waiting for Admin Approval") {
+      return "Waiting for Team Lead Approval";
+    }
+    return statusStr;
   };
 
   return (
     <span className={`status-badge ${getBadgeClass(status)}`}>
-      <span className="badge-icon">{getStatusIcon(status)}</span>
-      <span>{status}</span>
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
+        {getStatusIcon(status)}
+      </span>
+      <span>{getStatusLabel(status)}</span>
     </span>
   );
 };

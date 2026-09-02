@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { CalendarCheck, Check, ArrowRight, Shield } from "lucide-react";
 import { DEMO_LOGIN_USERS, storeUser } from "../services/auth";
 import { useLeave } from "../context/useLeave";
 
@@ -13,6 +14,18 @@ export const LoginPage = () => {
     setSelectedUserId(userId);
   };
 
+  const getRoleDisplay = (role) => {
+    switch (role) {
+      case "superior_admin":
+        return { label: "Superior Admin", bg: "#fce7f3", color: "#be185d" };
+      case "team_admin":
+      case "admin":
+        return { label: "Team Admin", bg: "#f3e8ff", color: "#7e22ce" };
+      default:
+        return { label: "Employee", bg: "#e0f2fe", color: "#0369a1" };
+    }
+  };
+
   const handleContinue = () => {
     if (!selectedUserId) return;
     const user = DEMO_LOGIN_USERS.find((u) => u.id === selectedUserId);
@@ -22,38 +35,43 @@ export const LoginPage = () => {
     storeUser(user);
 
     setTimeout(() => {
-      showToast(`Welcome, ${user.name}! Logged in as ${user.role === "admin" ? "Admin" : "Employee"}.`, "success");
+      const roleInfo = getRoleDisplay(user.role);
+      showToast(`Welcome, ${user.name}! Logged in as ${roleInfo.label}.`, "success");
       setIsLoading(false);
-      navigate(user.role === "admin" ? "/admin" : "/");
-    }, 500);
+
+      if (user.role === "superior_admin") {
+        navigate("/superior");
+      } else if (user.role === "team_admin" || user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/");
+      }
+    }, 400);
   };
 
   return (
     <div className="login-container">
-      <div className="login-card" style={{ maxWidth: "480px" }}>
+      <div className="login-card" style={{ maxWidth: "520px" }}>
         {/* Header */}
         <div className="login-header">
           <div className="login-brand-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-              <line x1="3" y1="10" x2="21" y2="10"></line>
-            </svg>
+            <CalendarCheck size={28} strokeWidth={2.5} />
           </div>
           <h2>Welcome to LeaveEase</h2>
-          <p>Select a demo account to explore the portal</p>
+          <p>Select a demo role account to explore the leave management portal</p>
         </div>
 
         {/* User Selection Cards */}
-        <div style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "0.875rem" }}>
-          <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>
+        <div style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <p style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>
             Choose Demo Account
           </p>
 
           {DEMO_LOGIN_USERS.map((user) => {
             const isSelected = selectedUserId === user.id;
             const initials = user.name.split(" ").map((n) => n[0]).join("");
+            const roleInfo = getRoleDisplay(user.role);
+
             return (
               <button
                 key={user.id}
@@ -62,23 +80,23 @@ export const LoginPage = () => {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "1rem",
-                  padding: "1rem 1.125rem",
-                  border: `2px solid ${isSelected ? "#6366f1" : "#e2e8f0"}`,
+                  gap: "0.875rem",
+                  padding: "0.875rem 1rem",
+                  border: `2px solid ${isSelected ? "#4f46e5" : "#e2e8f0"}`,
                   borderRadius: "12px",
                   background: isSelected ? "#eef2ff" : "#fff",
                   cursor: "pointer",
                   textAlign: "left",
                   transition: "all 0.18s ease",
-                  boxShadow: isSelected ? "0 0 0 3px rgba(99,102,241,0.15)" : "none",
+                  boxShadow: isSelected ? "0 0 0 3px rgba(79,70,229,0.15)" : "none",
                   width: "100%",
                 }}
               >
                 {/* Avatar */}
                 <div
                   style={{
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     borderRadius: "50%",
                     background: user.avatarColor,
                     display: "flex",
@@ -86,7 +104,7 @@ export const LoginPage = () => {
                     justifyContent: "center",
                     color: "#fff",
                     fontWeight: 700,
-                    fontSize: "1rem",
+                    fontSize: "0.9375rem",
                     flexShrink: 0,
                   }}
                 >
@@ -95,11 +113,11 @@ export const LoginPage = () => {
 
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, color: "#1e293b", fontSize: "0.9375rem" }}>
+                  <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.9375rem" }}>
                     {user.name}
                   </div>
-                  <div style={{ fontSize: "0.8125rem", color: "#64748b" }}>
-                    {user.designation} · {user.department}
+                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                    {user.designation} · <span style={{ fontWeight: 600 }}>{user.department}</span>
                   </div>
                 </div>
 
@@ -110,33 +128,31 @@ export const LoginPage = () => {
                     fontWeight: 700,
                     padding: "0.2rem 0.6rem",
                     borderRadius: 9999,
-                    background: user.role === "admin" ? "#f3e8ff" : "#e0f2fe",
-                    color: user.role === "admin" ? "#7e22ce" : "#0369a1",
+                    background: roleInfo.bg,
+                    color: roleInfo.color,
                     flexShrink: 0,
                     textTransform: "uppercase",
-                    letterSpacing: "0.05em",
+                    letterSpacing: "0.04em",
                   }}
                 >
-                  {user.role === "admin" ? "Admin" : "Employee"}
+                  {roleInfo.label}
                 </span>
 
                 {/* Selected indicator */}
                 {isSelected && (
                   <div
                     style={{
-                      width: 22,
-                      height: 22,
+                      width: 20,
+                      height: 20,
                       borderRadius: "50%",
-                      background: "#6366f1",
+                      background: "#4f46e5",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       flexShrink: 0,
                     }}
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
+                    <Check size={12} strokeWidth={3} color="#fff" />
                   </div>
                 )}
               </button>
@@ -149,14 +165,23 @@ export const LoginPage = () => {
             className="primary-btn login-btn"
             disabled={!selectedUserId || isLoading}
             onClick={handleContinue}
-            style={{ marginTop: "0.5rem", opacity: !selectedUserId ? 0.5 : 1 }}
+            style={{
+              marginTop: "0.5rem",
+              opacity: !selectedUserId ? 0.5 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.5rem",
+            }}
           >
-            {isLoading ? "Signing in..." : selectedUserId ? "Continue to Portal →" : "Select an Account First"}
+            <span>{isLoading ? "Signing in..." : selectedUserId ? "Continue to Portal" : "Select an Account First"}</span>
+            {!isLoading && selectedUserId && <ArrowRight size={15} />}
           </button>
 
           {/* Footer note */}
-          <p style={{ fontSize: "0.75rem", color: "#94a3b8", textAlign: "center", margin: 0 }}>
-            🔒 Demo environment — no real credentials required
+          <p style={{ fontSize: "0.75rem", color: "#94a3b8", textAlign: "center", margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}>
+            <Shield size={12} />
+            <span>Demo environment — role boundaries automatically applied</span>
           </p>
         </div>
       </div>

@@ -6,18 +6,29 @@ DELETE FROM leave_balances;
 DELETE FROM substitute_requests;
 DELETE FROM leave_requests;
 DELETE FROM employee_profiles;
+UPDATE teams SET team_admin_id = NULL;
 DELETE FROM users;
+DELETE FROM teams;
 
--- 1. Insert Users (1 Admin/Team Lead + 3 Employees)
--- Note: Passwords are encrypted with bcrypt (hash corresponds to 'password123')
-INSERT INTO users (id, name, email, password, role, created_at, updated_at)
+-- 1. Insert Teams (Engineering, Sales, Marketing, HR)
+INSERT INTO teams (id, name, created_at, updated_at)
+VALUES 
+    ('d0000000-0000-0000-0000-000000000001', 'Engineering', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d0000000-0000-0000-0000-000000000002', 'Sales', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d0000000-0000-0000-0000-000000000003', 'Marketing', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+    ('d0000000-0000-0000-0000-000000000004', 'HR', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- 2. Insert Users (1 Team Admin, 3 Employees, 1 Superior Admin)
+-- Passwords are encrypted with bcrypt (hash corresponds to 'password123')
+INSERT INTO users (id, name, email, password, role, team_id, created_at, updated_at)
 VALUES
     (
         'a0000000-0000-0000-0000-000000000001',
         'Priya Fernando',
         'priya.fernando@company.com',
         '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
-        'admin',
+        'team_admin',
+        'd0000000-0000-0000-0000-000000000001',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
@@ -27,6 +38,7 @@ VALUES
         'alex.morgan@company.com',
         '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
         'employee',
+        'd0000000-0000-0000-0000-000000000001',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
@@ -36,6 +48,7 @@ VALUES
         'michael.chen@company.com',
         '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
         'employee',
+        'd0000000-0000-0000-0000-000000000001',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
@@ -45,11 +58,27 @@ VALUES
         'sarah.johnson@company.com',
         '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
         'employee',
+        'd0000000-0000-0000-0000-000000000002',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
+    ),
+    (
+        'a0000000-0000-0000-0000-000000000005',
+        'Nadia Perera',
+        'nadia.perera@company.com',
+        '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
+        'superior_admin',
+        NULL,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     );
 
--- 2. Insert Employee Profiles for all users
+-- Set team_admin_id for Engineering to Priya Fernando
+UPDATE teams 
+SET team_admin_id = 'a0000000-0000-0000-0000-000000000001', updated_at = CURRENT_TIMESTAMP 
+WHERE id = 'd0000000-0000-0000-0000-000000000001';
+
+-- 3. Insert Employee Profiles for all users
 INSERT INTO employee_profiles (
     id,
     user_id,
@@ -120,19 +149,35 @@ VALUES
         'a0000000-0000-0000-0000-000000000004',
         'EMP-2024-8844',
         '+1 (555) 456-7890',
-        'UI/UX Designer',
-        'Engineering',
-        'Product Design',
-        'a0000000-0000-0000-0000-000000000001',
+        'Sales Representative',
+        'Sales',
+        'Enterprise Sales',
+        NULL,
         '2023-02-10',
         'Full-time / Permanent',
         'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
         'active',
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
+    ),
+    (
+        'b0000000-0000-0000-0000-000000000005',
+        'a0000000-0000-0000-0000-000000000005',
+        'EMP-1000',
+        '+1 (555) 100-9999',
+        'Head of Operations & Superior Admin',
+        'Executive Management',
+        'Executive',
+        NULL,
+        '2019-01-01',
+        'Full-time / Permanent',
+        'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
+        'active',
+        CURRENT_TIMESTAMP,
+        CURRENT_TIMESTAMP
     );
 
--- 3. Insert Leave Balances for Employees
+-- 4. Insert Leave Balances for Employees
 INSERT INTO leave_balances (
     id,
     employee_id,

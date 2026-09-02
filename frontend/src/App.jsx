@@ -7,8 +7,9 @@ import { ApplyLeavePage } from "./pages/ApplyLeavePage";
 import { MyLeavesPage } from "./pages/MyLeavesPage";
 import { SubstituteRequestsPage } from "./pages/SubstituteRequestsPage";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { SuperiorDashboard } from "./pages/SuperiorDashboard";
 import { EmployeeProfilePage } from "./pages/EmployeeProfilePage";
-import { getStoredUser, isAdmin } from "./services/auth";
+import { getStoredUser, isTeamAdmin, isSuperiorAdmin } from "./services/auth";
 import "./App.css";
 
 // Redirects to /login if no user is stored in localStorage
@@ -18,12 +19,38 @@ const RequireAuth = ({ children }) => {
   return children;
 };
 
-// Redirects to / if the logged-in user is not an admin
-const RequireAdmin = ({ children }) => {
+// Route guard for Team Admin Dashboard (allows team_admin and legacy admin)
+const RequireTeamAdmin = ({ children }) => {
   const user = getStoredUser();
   if (!user) return <Navigate to="/login" replace />;
-  if (!isAdmin(user)) return <Navigate to="/" replace />;
+  if (isSuperiorAdmin(user)) return <Navigate to="/superior" replace />;
+  if (!isTeamAdmin(user)) return <Navigate to="/" replace />;
   return children;
+};
+
+// Route guard for Superior Admin Dashboard (allows superior_admin only)
+const RequireSuperiorAdmin = ({ children }) => {
+  const user = getStoredUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (!isSuperiorAdmin(user)) {
+    return isTeamAdmin(user) ? <Navigate to="/admin" replace /> : <Navigate to="/" replace />;
+  }
+  return children;
+};
+
+// Route guard to prevent Superior Admin from accessing operational employee pages
+const RequireNonSuperior = ({ children }) => {
+  const user = getStoredUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (isSuperiorAdmin(user)) return <Navigate to="/superior" replace />;
+  return children;
+};
+
+// Index route router: directs superior admin to /superior, others to standard dashboard
+const DashboardIndex = () => {
+  const user = getStoredUser();
+  if (isSuperiorAdmin(user)) return <Navigate to="/superior" replace />;
+  return <EmployeeDashboard />;
 };
 
 function App() {
@@ -43,23 +70,59 @@ function App() {
               </RequireAuth>
             }
           >
-            <Route index element={<EmployeeDashboard />} />
-            <Route path="dashboard" element={<EmployeeDashboard />} />
-            <Route path="apply-leave" element={<ApplyLeavePage />} />
-            <Route path="my-leaves" element={<MyLeavesPage />} />
-            <Route path="substitute-requests" element={<SubstituteRequestsPage />} />
+            <Route index element={<DashboardIndex />} />
+            <Route
+              path="dashboard"
+              element={
+                <RequireNonSuperior>
+                  <EmployeeDashboard />
+                </RequireNonSuperior>
+              }
+            />
+            <Route
+              path="apply-leave"
+              element={
+                <RequireNonSuperior>
+                  <ApplyLeavePage />
+                </RequireNonSuperior>
+              }
+            />
+            <Route
+              path="my-leaves"
+              element={
+                <RequireNonSuperior>
+                  <MyLeavesPage />
+                </RequireNonSuperior>
+              }
+            />
+            <Route
+              path="substitute-requests"
+              element={
+                <RequireNonSuperior>
+                  <SubstituteRequestsPage />
+                </RequireNonSuperior>
+              }
+            />
             <Route
               path="admin"
               element={
-                <RequireAdmin>
+                <RequireTeamAdmin>
                   <AdminDashboard />
-                </RequireAdmin>
+                </RequireTeamAdmin>
+              }
+            />
+            <Route
+              path="superior"
+              element={
+                <RequireSuperiorAdmin>
+                  <SuperiorDashboard />
+                </RequireSuperiorAdmin>
               }
             />
             <Route path="profile" element={<EmployeeProfilePage />} />
           </Route>
 
-          {/* Catch-all redirect to Dashboard */}
+          {/* Catch-all redirect to Index */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

@@ -1,11 +1,27 @@
 import { useState, useEffect, useCallback } from "react";
+import {
+  RefreshCw,
+  Palmtree,
+  Clock,
+  Hourglass,
+  Users,
+  CheckCircle2,
+  XCircle,
+  Search,
+  X,
+  Check,
+  Inbox,
+  Sparkles,
+  Calendar,
+  Building2,
+  FileText,
+} from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { StatusBadge } from "../components/StatusBadge";
 import {
   getAdminLeaveRequests,
   approveLeaveRequest,
   rejectLeaveRequest,
-  DEMO_USERS,
 } from "../services/api";
 import {
   getLocalTodayString,
@@ -15,7 +31,7 @@ import {
 } from "../utils/dateUtils";
 
 export const AdminDashboard = () => {
-  const { showToast } = useLeave();
+  const { showToast, loggedInUser } = useLeave();
 
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,25 +47,29 @@ export const AdminDashboard = () => {
   const [rejectingLeaveId, setRejectingLeaveId] = useState(null);
   const [adminRemarks, setAdminRemarks] = useState("");
 
+  const currentAdminId = loggedInUser?.id || null;
+  const adminName = loggedInUser?.name || "Team Lead";
+  const adminTeam = loggedInUser?.department || loggedInUser?.team || "Engineering";
+
   const fetchAdminLeaves = useCallback(async (isManual = false) => {
     if (isManual) {
       setLoading(true);
     }
     setError(null);
     try {
-      const response = await getAdminLeaveRequests();
+      const response = await getAdminLeaveRequests(currentAdminId);
       setLeaves(response.data || []);
     } catch (err) {
-      console.error("Error loading admin leaves:", err);
-      setError(err.message || "Failed to load leave requests from backend");
+      console.error("Error loading team leaves:", err);
+      setError(err.message || "Failed to load team leave requests from backend");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentAdminId]);
 
   useEffect(() => {
     let isMounted = true;
-    getAdminLeaveRequests()
+    getAdminLeaveRequests(currentAdminId)
       .then((response) => {
         if (isMounted) {
           setLeaves(response.data || []);
@@ -58,8 +78,8 @@ export const AdminDashboard = () => {
       })
       .catch((err) => {
         if (isMounted) {
-          console.error("Error loading admin leaves:", err);
-          setError(err.message || "Failed to load leave requests from backend");
+          console.error("Error loading team leaves:", err);
+          setError(err.message || "Failed to load team leave requests from backend");
           setLoading(false);
         }
       });
@@ -67,12 +87,16 @@ export const AdminDashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentAdminId]);
 
   const handleApprove = async (leaveId) => {
+    if (!currentAdminId) {
+      showToast("Please log in as a Team Admin to approve leaves.", "warning");
+      return;
+    }
     setActionLoadingId(leaveId);
     try {
-      const res = await approveLeaveRequest(leaveId, DEMO_USERS.ADMIN.id);
+      const res = await approveLeaveRequest(leaveId, currentAdminId);
       showToast(res.message || "Leave request approved successfully!", "success");
       await fetchAdminLeaves(false);
     } catch (err) {
@@ -91,7 +115,8 @@ export const AdminDashboard = () => {
     try {
       const res = await rejectLeaveRequest(
         rejectingLeaveId,
-        adminRemarks.trim() || "Leave request rejected by management"
+        adminRemarks.trim() || "Leave request rejected by team lead",
+        currentAdminId
       );
       showToast(res.message || "Leave request rejected.", "info");
       setRejectingLeaveId(null);
@@ -129,7 +154,6 @@ export const AdminDashboard = () => {
   const todayDateObj = new Date();
 
   // 1. Calculations
-  // On Leave Today: status="Approved", leave_type != "Time Permission", todayStr between start_date and end_date
   const onLeaveTodayList = leaves.filter((l) => {
     if (l.status !== "Approved") return false;
     if (l.leave_type === "Time Permission") {
@@ -164,7 +188,9 @@ export const AdminDashboard = () => {
   const pendingAdminCount = pendingAdminList.length;
 
   const pendingSubstituteList = leaves.filter(
-    (l) => l.status === "Waiting for Substitute Approval"
+    (l) =>
+      l.status === "Waiting for Substitute Approval" &&
+      l.substitute_status !== "Rejected"
   );
   const pendingSubstituteCount = pendingSubstituteList.length;
 
@@ -197,27 +223,46 @@ export const AdminDashboard = () => {
 
   return (
     <div className="admin-page-container">
-      {/* Header Refresh & Title Bar */}
+      {/* Header Banner */}
       <div className="admin-header-row">
         <div>
-          <h2 className="admin-title">Admin Management Dashboard</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <h2 className="admin-title">Team Admin Dashboard</h2>
+            <span
+              style={{
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                padding: "0.2rem 0.65rem",
+                borderRadius: "9999px",
+                background: "#f3e8ff",
+                color: "#7e22ce",
+                border: "1px solid #e9d5ff",
+                textTransform: "uppercase",
+              }}
+            >
+              {adminTeam} Team
+            </span>
+          </div>
           <p className="admin-subtitle">
-            Real-time tracking of team leave requests, approvals, and daily presence
+            Managing leave applications and presence for <strong>{adminTeam}</strong> (Lead: {adminName})
           </p>
         </div>
         <button
           className="secondary-btn"
           onClick={() => fetchAdminLeaves(true)}
-          title="Refresh All Records"
+          title="Refresh Team Records"
         >
-          🔄 Refresh Data
+          <RefreshCw size={14} />
+          <span>Refresh Data</span>
         </button>
       </div>
 
       {/* Loading state */}
       {loading && (
         <div className="table-card" style={{ padding: "3rem", textAlign: "center" }}>
-          <p>⏳ Loading live admin leave data from backend...</p>
+          <p style={{ color: "#64748b", fontSize: "0.875rem" }}>
+            Loading live team leave data from backend...
+          </p>
         </div>
       )}
 
@@ -242,7 +287,10 @@ export const AdminDashboard = () => {
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header-compact">
-              <h3 className="section-title-sm">📊 Today&apos;s Overview</h3>
+              <h3 className="section-title-sm">
+                <Building2 size={16} className="text-blue" />
+                <span>{adminTeam} Team Overview</span>
+              </h3>
               <span className="text-muted text-sm">
                 Date: {todayDateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </span>
@@ -252,67 +300,79 @@ export const AdminDashboard = () => {
               {/* Card 1: On Leave Today */}
               <div className="overview-card card-leave-today">
                 <div className="overview-card-header">
-                  <div className="overview-icon icon-teal">🌴</div>
+                  <div className="overview-icon icon-teal">
+                    <Palmtree size={18} />
+                  </div>
                   <span className="overview-count">{onLeaveTodayCount}</span>
                 </div>
                 <div className="overview-card-body">
                   <h4 className="overview-title">On Leave Today</h4>
-                  <p className="overview-subtitle">Employees currently away</p>
+                  <p className="overview-subtitle">Members away today</p>
                 </div>
               </div>
 
               {/* Card 2: Time Permission Today */}
               <div className="overview-card card-permission-today">
                 <div className="overview-card-header">
-                  <div className="overview-icon icon-cyan">⏱️</div>
+                  <div className="overview-icon icon-cyan">
+                    <Clock size={18} />
+                  </div>
                   <span className="overview-count">{timePermissionTodayCount}</span>
                 </div>
                 <div className="overview-card-body">
                   <h4 className="overview-title">Time Permission Today</h4>
-                  <p className="overview-subtitle">Short permissions active</p>
+                  <p className="overview-subtitle">Short permissions</p>
                 </div>
               </div>
 
-              {/* Card 3: Pending Admin Approvals */}
+              {/* Card 3: Pending Team Lead Approvals */}
               <div className="overview-card card-pending-admin">
                 <div className="overview-card-header">
-                  <div className="overview-icon icon-amber">⏳</div>
+                  <div className="overview-icon icon-amber">
+                    <Hourglass size={18} />
+                  </div>
                   <span className="overview-count text-amber">{pendingAdminCount}</span>
                 </div>
                 <div className="overview-card-body">
-                  <h4 className="overview-title">Pending Admin Approvals</h4>
-                  <p className="overview-subtitle">Awaiting your final review</p>
+                  <h4 className="overview-title">Pending Team Lead</h4>
+                  <p className="overview-subtitle">Awaiting your review</p>
                 </div>
               </div>
 
               {/* Card 4: Pending Substitute Approvals */}
               <div className="overview-card card-pending-sub">
                 <div className="overview-card-header">
-                  <div className="overview-icon icon-blue">👥</div>
+                  <div className="overview-icon icon-blue">
+                    <Users size={18} />
+                  </div>
                   <span className="overview-count text-blue">{pendingSubstituteCount}</span>
                 </div>
                 <div className="overview-card-body">
-                  <h4 className="overview-title">Pending Substitute Approvals</h4>
-                  <p className="overview-subtitle">Awaiting peer handover</p>
+                  <h4 className="overview-title">Pending Substitute</h4>
+                  <p className="overview-subtitle">Awaiting handover</p>
                 </div>
               </div>
 
               {/* Card 5: Approved Requests */}
               <div className="overview-card card-approved">
                 <div className="overview-card-header">
-                  <div className="overview-icon icon-green">✓</div>
+                  <div className="overview-icon icon-green">
+                    <CheckCircle2 size={18} />
+                  </div>
                   <span className="overview-count text-green">{approvedCount}</span>
                 </div>
                 <div className="overview-card-body">
                   <h4 className="overview-title">Approved Requests</h4>
-                  <p className="overview-subtitle">Total approved applications</p>
+                  <p className="overview-subtitle">Total approved in team</p>
                 </div>
               </div>
 
               {/* Card 6: Rejected Requests */}
               <div className="overview-card card-rejected">
                 <div className="overview-card-header">
-                  <div className="overview-icon icon-red">✕</div>
+                  <div className="overview-icon icon-red">
+                    <XCircle size={18} />
+                  </div>
                   <span className="overview-count text-red">{rejectedCount}</span>
                 </div>
                 <div className="overview-card-body">
@@ -329,9 +389,12 @@ export const AdminDashboard = () => {
           <section className="dashboard-section">
             <div className="section-header">
               <div>
-                <h3 className="section-title">🏖️ People on Leave Today</h3>
+                <h3 className="section-title">
+                  <Palmtree size={18} className="text-teal" />
+                  <span>People on Leave Today ({adminTeam})</span>
+                </h3>
                 <p className="section-subtitle">
-                  Employees with approved leave or time permission active today
+                  Team members with approved leave or time permission active today
                 </p>
               </div>
               <span className="counter-pill">{onLeaveTodayList.length} Active</span>
@@ -340,8 +403,10 @@ export const AdminDashboard = () => {
             <div className="table-card">
               {onLeaveTodayList.length === 0 ? (
                 <div className="empty-state-compact">
-                  <span className="empty-icon-sm">🏢</span>
-                  <p>No employees are on leave or time permission today. Full attendance!</p>
+                  <div className="empty-icon-sm">
+                    <Building2 size={24} style={{ color: "#94a3b8" }} />
+                  </div>
+                  <p>No team members are on leave or time permission today. Full attendance!</p>
                 </div>
               ) : (
                 <div className="table-responsive">
@@ -378,7 +443,7 @@ export const AdminDashboard = () => {
                           </td>
                           <td>
                             <span className="substitute-cell">
-                              {leave.substitute_name ? `👤 ${leave.substitute_name}` : "— None —"}
+                              {leave.substitute_name ? leave.substitute_name : "— None —"}
                             </span>
                           </td>
                           <td>
@@ -387,8 +452,8 @@ export const AdminDashboard = () => {
                             </div>
                           </td>
                           <td>
-                            <span className="text-green font-medium" style={{ fontSize: "0.8125rem" }}>
-                              ✓ {leave.approver_name || "Priya Fernando"}
+                            <span className="text-green font-medium" style={{ fontSize: "0.8125rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                              <Check size={12} strokeWidth={2.5} /> {leave.approver_name || adminName}
                             </span>
                           </td>
                           <td>
@@ -409,14 +474,17 @@ export const AdminDashboard = () => {
           </section>
 
           {/* =========================================================================
-              3. PENDING ADMIN APPROVALS
+              3. PENDING TEAM LEAD APPROVALS
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header">
               <div>
-                <h3 className="section-title">⏳ Pending Admin Approvals</h3>
+                <h3 className="section-title">
+                  <Hourglass size={18} className="text-amber" />
+                  <span>Pending Team Lead Approvals</span>
+                </h3>
                 <p className="section-subtitle">
-                  Applications accepted by substitutes requiring your administrative decision
+                  Applications accepted by substitutes requiring your team lead decision
                 </p>
               </div>
               <span className="counter-pill pill-amber">{pendingAdminList.length} Action Needed</span>
@@ -425,8 +493,10 @@ export const AdminDashboard = () => {
             <div className="table-card">
               {pendingAdminList.length === 0 ? (
                 <div className="empty-state-compact">
-                  <span className="empty-icon-sm">✨</span>
-                  <p>All caught up! There are no leave requests pending admin approval.</p>
+                  <div className="empty-icon-sm">
+                    <Sparkles size={24} style={{ color: "#10b981" }} />
+                  </div>
+                  <p>All caught up! There are no leave requests pending team lead approval.</p>
                 </div>
               ) : (
                 <div className="table-responsive">
@@ -438,7 +508,7 @@ export const AdminDashboard = () => {
                         <th>Duration</th>
                         <th>Substitute</th>
                         <th>Assigned Work</th>
-                        <th>Admin Decision</th>
+                        <th>Team Lead Decision</th>
                         <th>Details</th>
                       </tr>
                     </thead>
@@ -465,7 +535,7 @@ export const AdminDashboard = () => {
                             </td>
                             <td>
                               <span className="substitute-cell">
-                                {leave.substitute_name ? `👤 ${leave.substitute_name}` : "— None —"}
+                                {leave.substitute_name ? leave.substitute_name : "— None —"}
                               </span>
                               {leave.substitute_status && (
                                 <span className="text-muted" style={{ display: "block", fontSize: "0.75rem" }}>
@@ -490,7 +560,7 @@ export const AdminDashboard = () => {
                                   }}
                                   title="Reject Application"
                                 >
-                                  ✕ Reject
+                                  <X size={12} strokeWidth={2.5} /> Reject
                                 </button>
                                 <button
                                   type="button"
@@ -499,7 +569,7 @@ export const AdminDashboard = () => {
                                   onClick={() => handleApprove(leave.id)}
                                   title="Approve Application"
                                 >
-                                  {isActionLoading ? "..." : "✓ Approve"}
+                                  {isActionLoading ? "..." : <><Check size={12} strokeWidth={2.5} /> Approve</>}
                                 </button>
                               </div>
                             </td>
@@ -527,7 +597,10 @@ export const AdminDashboard = () => {
           <section className="dashboard-section">
             <div className="section-header">
               <div>
-                <h3 className="section-title">👥 Pending Substitute Approvals</h3>
+                <h3 className="section-title">
+                  <Users size={18} className="text-blue" />
+                  <span>Pending Substitute Approvals</span>
+                </h3>
                 <p className="section-subtitle">
                   Applications currently awaiting duty acceptance from designated substitutes
                 </p>
@@ -538,8 +611,10 @@ export const AdminDashboard = () => {
             <div className="table-card">
               {pendingSubstituteList.length === 0 ? (
                 <div className="empty-state-compact">
-                  <span className="empty-icon-sm">✓</span>
-                  <p>No leave applications are currently waiting for substitute review.</p>
+                  <div className="empty-icon-sm">
+                    <CheckCircle2 size={24} style={{ color: "#10b981" }} />
+                  </div>
+                  <p>No leave applications are currently waiting for substitute review in your team.</p>
                 </div>
               ) : (
                 <div className="table-responsive">
@@ -576,7 +651,7 @@ export const AdminDashboard = () => {
                           </td>
                           <td>
                             <span className="substitute-cell">
-                              {leave.substitute_name ? `👤 ${leave.substitute_name}` : "— None —"}
+                              {leave.substitute_name ? leave.substitute_name : "— None —"}
                             </span>
                           </td>
                           <td>
@@ -612,9 +687,12 @@ export const AdminDashboard = () => {
           <section className="dashboard-section">
             <div className="section-header">
               <div>
-                <h3 className="section-title">📋 All Leave Applications History</h3>
+                <h3 className="section-title">
+                  <FileText size={18} className="text-blue" />
+                  <span>{adminTeam} Leave Applications History</span>
+                </h3>
                 <p className="section-subtitle">
-                  Browse, search, and filter all historical and incoming leave applications
+                  Browse, search, and filter all historical and incoming leave applications in your team
                 </p>
               </div>
             </div>
@@ -632,7 +710,7 @@ export const AdminDashboard = () => {
                   className={`filter-tab ${allFilterStatus === "PENDING_ADMIN" ? "tab-active" : ""}`}
                   onClick={() => setAllFilterStatus("PENDING_ADMIN")}
                 >
-                  Pending Admin ({pendingAdminCount})
+                  Pending Team Lead ({pendingAdminCount})
                 </button>
                 <button
                   className={`filter-tab ${allFilterStatus === "WAITING_SUB" ? "tab-active" : ""}`}
@@ -656,10 +734,10 @@ export const AdminDashboard = () => {
 
               <div className="controls-right">
                 <div className="search-input-wrapper">
-                  <span className="search-icon">🔍</span>
+                  <Search size={14} className="search-icon" />
                   <input
                     type="text"
-                    placeholder="Search by employee, leave type, substitute..."
+                    placeholder="Search employee, leave type..."
                     className="search-input"
                     value={searchEmployee}
                     onChange={(e) => setSearchEmployee(e.target.value)}
@@ -669,7 +747,7 @@ export const AdminDashboard = () => {
                       className="search-clear"
                       onClick={() => setSearchEmployee("")}
                     >
-                      ✕
+                      <X size={12} />
                     </button>
                   )}
                 </div>
@@ -680,8 +758,10 @@ export const AdminDashboard = () => {
             <div className="table-card">
               {filteredAllLeaves.length === 0 ? (
                 <div className="empty-state">
-                  <div className="empty-icon">🛡️</div>
-                  <h3>No Leave Applications</h3>
+                  <div className="empty-icon">
+                    <Inbox size={24} />
+                  </div>
+                  <h3>No Leave Applications Found</h3>
                   <p>
                     {searchEmployee
                       ? "No matching requests found for your search query."
@@ -700,7 +780,7 @@ export const AdminDashboard = () => {
                         <th>Duration</th>
                         <th>Substitute</th>
                         <th>Status</th>
-                        <th>Admin Decision</th>
+                        <th>Team Lead Decision</th>
                         <th>Details</th>
                       </tr>
                     </thead>
@@ -736,10 +816,14 @@ export const AdminDashboard = () => {
                             </td>
                             <td>
                               {leave.leave_type === "Time Permission" ? (
-                                <div>📅 {formatDateOnly(leave.permission_date)}</div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                  <Calendar size={12} className="text-muted" />
+                                  <span>{formatDateOnly(leave.permission_date)}</span>
+                                </div>
                               ) : (
-                                <div>
-                                  📅 {formatDateOnly(leave.start_date)} to {formatDateOnly(leave.end_date)}
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                  <Calendar size={12} className="text-muted" />
+                                  <span>{formatDateOnly(leave.start_date)} to {formatDateOnly(leave.end_date)}</span>
                                 </div>
                               )}
                             </td>
@@ -749,7 +833,7 @@ export const AdminDashboard = () => {
                             <td>
                               <span className="substitute-cell">
                                 {leave.substitute_name
-                                  ? `👤 ${leave.substitute_name}`
+                                  ? leave.substitute_name
                                   : "— None —"}
                               </span>
                             </td>
@@ -769,7 +853,7 @@ export const AdminDashboard = () => {
                                     }}
                                     title="Reject Application"
                                   >
-                                    ✕ Reject
+                                    <X size={12} strokeWidth={2.5} /> Reject
                                   </button>
                                   <button
                                     type="button"
@@ -786,7 +870,7 @@ export const AdminDashboard = () => {
                                       cursor: isAwaitingSubstitute ? "not-allowed" : "pointer",
                                     }}
                                   >
-                                    {isActionLoading ? "..." : "✓ Approve"}
+                                    {isActionLoading ? "..." : <><Check size={12} strokeWidth={2.5} /> Approve</>}
                                   </button>
                                 </div>
                               ) : (
@@ -822,13 +906,13 @@ export const AdminDashboard = () => {
             <div className="modal-header">
               <div>
                 <span className="cell-id">{selectedLeave.id}</span>
-                <h2>Admin Review: {selectedLeave.employee_name}</h2>
+                <h2>Team Lead Review: {selectedLeave.employee_name}</h2>
               </div>
               <button
                 className="modal-close-btn"
                 onClick={() => setSelectedLeave(null)}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
 
@@ -898,14 +982,14 @@ export const AdminDashboard = () => {
                 </div>
               )}
 
-              {/* Admin Approval Details */}
+              {/* Approval Details */}
               {selectedLeave.status === "Approved" && (
                 <div className="admin-decision-box approval-box">
                   <div className="modal-grid-2">
                     <div className="modal-detail-item">
                       <span className="detail-label">Approved By</span>
-                      <span className="detail-value font-semibold text-green">
-                        ✓ {selectedLeave.approver_name || selectedLeave.approved_by || "Priya Fernando (Admin)"}
+                      <span className="detail-value font-semibold text-green" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                        <Check size={14} strokeWidth={2.5} /> {selectedLeave.approver_name || selectedLeave.approved_by || adminName}
                       </span>
                     </div>
                     <div className="modal-detail-item">
@@ -918,14 +1002,14 @@ export const AdminDashboard = () => {
                 </div>
               )}
 
-              {/* Admin Rejection Details */}
+              {/* Rejection Details */}
               {selectedLeave.status === "Rejected" && (
                 <div className="admin-decision-box rejection-box">
                   <div className="modal-grid-2">
                     <div className="modal-detail-item">
                       <span className="detail-label">Rejected By</span>
-                      <span className="detail-value font-semibold text-red">
-                        ✕ {selectedLeave.approver_name || "Admin (Priya Fernando)"}
+                      <span className="detail-value font-semibold text-red" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                        <X size={14} strokeWidth={2.5} /> {selectedLeave.approver_name || adminName}
                       </span>
                     </div>
                     <div className="modal-detail-item">
@@ -937,7 +1021,7 @@ export const AdminDashboard = () => {
                   </div>
 
                   <div className="modal-detail-item" style={{ marginTop: "0.75rem" }}>
-                    <span className="detail-label">Admin Remarks</span>
+                    <span className="detail-label">Team Lead Remarks</span>
                     <div className="detail-textbox rejection-remarks-box">
                       {selectedLeave.admin_remarks || "No remarks provided"}
                     </div>
@@ -998,23 +1082,23 @@ export const AdminDashboard = () => {
                 className="modal-close-btn"
                 onClick={() => setRejectingLeaveId(null)}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
             <form onSubmit={handleRejectConfirm}>
               <div className="modal-body">
                 <p style={{ fontSize: "0.875rem", color: "#475569" }}>
-                  Please provide the management justification for rejecting this leave request:
+                  Please provide the justification for rejecting this leave request:
                 </p>
                 <div className="form-group">
                   <label htmlFor="adminRemarks" className="form-label">
-                    Admin Remarks / Justification
+                    Team Lead Remarks / Justification
                   </label>
                   <textarea
                     id="adminRemarks"
                     className="form-textarea"
                     rows="3"
-                    placeholder="e.g. Leave cannot be approved due to critical release schedule..."
+                    placeholder="e.g. Leave cannot be approved due to sprint release dependencies..."
                     value={adminRemarks}
                     onChange={(e) => setAdminRemarks(e.target.value)}
                     required

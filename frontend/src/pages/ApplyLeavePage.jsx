@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  FileText,
+  Clock,
+  AlertCircle,
+  Send,
+  BookOpen,
+  User,
+} from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { applyLeave as submitLeaveApi, DEMO_USERS } from "../services/api";
+import { DEMO_LOGIN_USERS } from "../services/auth";
 import { calculateInclusiveDays, formatDateOnly } from "../utils/dateUtils";
 
 export const ApplyLeavePage = () => {
@@ -24,13 +33,15 @@ export const ApplyLeavePage = () => {
 
   const isTimePermission = leaveType === "Time Permission";
 
-  // Build substitute list: all demo users except current applicant
-  const allSubstitutes = [
-    { id: DEMO_USERS.EMPLOYEE_APPLICANT.id, name: DEMO_USERS.EMPLOYEE_APPLICANT.name, role: DEMO_USERS.EMPLOYEE_APPLICANT.role },
-    { id: DEMO_USERS.SUBSTITUTE_EMPLOYEE.id, name: DEMO_USERS.SUBSTITUTE_EMPLOYEE.name, role: DEMO_USERS.SUBSTITUTE_EMPLOYEE.role },
-    { id: DEMO_USERS.ANOTHER_EMPLOYEE.id, name: DEMO_USERS.ANOTHER_EMPLOYEE.name, role: DEMO_USERS.ANOTHER_EMPLOYEE.role },
-  ];
-  const availableSubstitutes = allSubstitutes.filter((s) => s.id !== applicant.id);
+  // Build substitute list: all team members except current applicant & superior admin
+  const availableSubstitutes = DEMO_LOGIN_USERS
+    .filter((u) => u.role !== "superior_admin" && u.id !== applicant.id)
+    .map((u) => ({
+      id: u.id,
+      name: u.name,
+      role: u.designation || u.role,
+      team: u.department,
+    }));
 
   const daysCount = isTimePermission ? null : calculateInclusiveDays(startDate, endDate, leaveType);
 
@@ -88,7 +99,9 @@ export const ApplyLeavePage = () => {
         {/* Main Application Form Card */}
         <div className="form-main-card">
           <div className="form-card-header">
-            <div className="form-badge-icon">📝</div>
+            <div className="form-badge-icon">
+              <FileText size={22} />
+            </div>
             <div>
               <h2 className="form-title">Leave Application Form</h2>
               <p className="form-subtitle">
@@ -99,7 +112,7 @@ export const ApplyLeavePage = () => {
 
           {errorMsg && (
             <div className="form-error-alert">
-              <span className="error-icon">⚠️</span>
+              <AlertCircle size={16} />
               <span>{errorMsg}</span>
             </div>
           )}
@@ -195,7 +208,8 @@ export const ApplyLeavePage = () => {
 
             {!isTimePermission && daysCount !== null && (
               <div className="duration-summary-pill">
-                <span>⏱️ Total Duration:</span>
+                <Clock size={15} />
+                <span>Total Duration:</span>
                 <strong>{daysCount} {daysCount === 1 ? "day" : "days"}</strong>
               </div>
             )}
@@ -228,15 +242,15 @@ export const ApplyLeavePage = () => {
                 onChange={(e) => setSubstituteId(e.target.value)}
                 required
               >
-                <option value="">-- Choose a team member as substitute --</option>
+                <option value="">-- Choose a colleague as substitute --</option>
                 {availableSubstitutes.map((emp) => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.name} ({emp.role})
+                    {emp.name} ({emp.role} - {emp.team})
                   </option>
                 ))}
               </select>
               <span className="form-hint">
-                The chosen substitute must accept the delegation before admin approval.
+                The chosen substitute must accept the delegation before team lead approval.
               </span>
             </div>
 
@@ -270,7 +284,8 @@ export const ApplyLeavePage = () => {
                 className="primary-btn submit-leave-btn"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Submitting Application..." : "Submit Leave Application"}
+                <Send size={14} />
+                <span>{isSubmitting ? "Submitting Application..." : "Submit Application"}</span>
               </button>
             </div>
           </form>
@@ -279,13 +294,16 @@ export const ApplyLeavePage = () => {
         {/* Sidebar Information Card */}
         <div className="form-side-info">
           <div className="info-card">
-            <h3>📌 Leave Policy Guidelines</h3>
+            <h3 style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+              <BookOpen size={16} className="text-blue" />
+              <span>Leave Policy Guidelines</span>
+            </h3>
             <ul className="policy-list">
               <li>
                 <strong>Substitute Approval:</strong> Requests will first be routed to your chosen substitute.
               </li>
               <li>
-                <strong>Admin Approval:</strong> Once substitute accepts, management reviews for final decision.
+                <strong>Team Lead Approval:</strong> Once substitute accepts, your team lead reviews for decision.
               </li>
               <li>
                 <strong>Time Permission:</strong> Limited to a maximum of 3 hours per request session.
@@ -297,7 +315,10 @@ export const ApplyLeavePage = () => {
           </div>
 
           <div className="info-card info-card-highlight">
-            <h3>💡 Applicant Account Info</h3>
+            <h3 style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+              <User size={16} className="text-blue" />
+              <span>Applicant Information</span>
+            </h3>
             <p>
               Applying as <strong>{applicant.name}</strong> ({applicant.email}).
             </p>

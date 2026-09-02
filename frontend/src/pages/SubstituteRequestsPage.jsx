@@ -1,4 +1,16 @@
 import { useState, useEffect } from "react";
+import {
+  Users,
+  Calendar,
+  MessageSquare,
+  ClipboardList,
+  Check,
+  X,
+  RefreshCw,
+  Sparkles,
+  AlertCircle,
+  FileEdit,
+} from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import {
   getSubstituteRequests,
@@ -41,7 +53,6 @@ export const SubstituteRequestsPage = () => {
 
   useEffect(() => {
     let isMounted = true;
-    setLoading(true);
     getSubstituteRequests(substituteId)
       .then((response) => { if (isMounted) { setRequests(response.data || []); setLoading(false); } })
       .catch((err) => {
@@ -52,7 +63,6 @@ export const SubstituteRequestsPage = () => {
         }
       });
     return () => { isMounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [substituteId]);
 
   const handleAccept = async (requestId) => {
@@ -97,7 +107,9 @@ export const SubstituteRequestsPage = () => {
     <div className="substitute-page-container">
       {/* Info Banner */}
       <div className="info-banner">
-        <div className="banner-icon">🤝</div>
+        <div className="banner-icon" style={{ display: "inline-flex", alignItems: "center" }}>
+          <Users size={24} className="text-blue" />
+        </div>
         <div className="banner-text">
           <h3>Substitute Duties & Responsibility Delegation</h3>
           <p>
@@ -120,23 +132,35 @@ export const SubstituteRequestsPage = () => {
             All Requests ({requests.length})
           </button>
         </div>
-        <button className="secondary-btn" onClick={() => fetchRequests(true)} title="Refresh">🔄 Refresh</button>
+        <button className="secondary-btn" onClick={() => fetchRequests(true)} title="Refresh">
+          <RefreshCw size={14} />
+          <span>Refresh</span>
+        </button>
       </div>
 
-      {loading && <div className="table-card" style={{ padding: "3rem", textAlign: "center" }}><p>⏳ Loading substitute duty requests...</p></div>}
+      {loading && (
+        <div className="table-card" style={{ padding: "3rem", textAlign: "center" }}>
+          <p style={{ color: "#64748b", fontSize: "0.875rem" }}>Loading substitute duty requests...</p>
+        </div>
+      )}
 
       {!loading && error && (
         <div className="form-error-alert">
-          <span>⚠️ {error}</span>
-          <button className="secondary-btn" onClick={() => fetchRequests(true)} style={{ marginLeft: "auto", padding: "0.25rem 0.75rem" }}>Retry</button>
+          <AlertCircle size={16} />
+          <span>{error}</span>
+          <button className="secondary-btn" onClick={() => fetchRequests(true)} style={{ marginLeft: "auto", padding: "0.25rem 0.75rem" }}>
+            Retry
+          </button>
         </div>
       )}
 
       {!loading && !error && displayedRequests.length === 0 && (
-        <div className="empty-state-card">
-          <div className="empty-icon">✨</div>
+        <div className="empty-state">
+          <div className="empty-icon">
+            <Sparkles size={24} />
+          </div>
           <h3>No Substitute Requests</h3>
-          <p>{filter === "PENDING" ? "No pending substitute duties requiring review." : "No requests found in this view."}</p>
+          <p>{filter === "PENDING" ? "No pending substitute duties requiring your review." : "No requests found in this view."}</p>
         </div>
       )}
 
@@ -176,21 +200,27 @@ export const SubstituteRequestsPage = () => {
 
                 <div className="substitute-card-body">
                   <div className="detail-row">
-                    <span className="detail-icon">📅</span>
+                    <span className="detail-icon" style={{ display: "inline-flex", alignItems: "center" }}>
+                      <Calendar size={16} className="text-muted" />
+                    </span>
                     <div>
                       <strong className="detail-title">Leave Dates / Period:</strong>
                       <p className="detail-value-highlight">{datesStr}</p>
                     </div>
                   </div>
                   <div className="detail-row">
-                    <span className="detail-icon">💬</span>
+                    <span className="detail-icon" style={{ display: "inline-flex", alignItems: "center" }}>
+                      <MessageSquare size={16} className="text-muted" />
+                    </span>
                     <div>
                       <strong className="detail-title">Colleague's Reason:</strong>
                       <p className="detail-text">{req.reason}</p>
                     </div>
                   </div>
                   <div className="detail-row highlight-box">
-                    <span className="detail-icon">📋</span>
+                    <span className="detail-icon" style={{ display: "inline-flex", alignItems: "center" }}>
+                      <ClipboardList size={16} className="text-blue" />
+                    </span>
                     <div>
                       <strong className="detail-title">Work Handover & Assigned Tasks:</strong>
                       <p className="detail-text work-text">{req.assigned_work}</p>
@@ -198,7 +228,9 @@ export const SubstituteRequestsPage = () => {
                   </div>
                   {req.substitute_remarks && (
                     <div className="detail-row">
-                      <span className="detail-icon">📝</span>
+                      <span className="detail-icon" style={{ display: "inline-flex", alignItems: "center" }}>
+                        <FileEdit size={16} className="text-muted" />
+                      </span>
                       <div>
                         <strong className="detail-title">Your Remarks:</strong>
                         <p className="detail-text">{req.substitute_remarks}</p>
@@ -213,17 +245,17 @@ export const SubstituteRequestsPage = () => {
                     <div className="action-buttons-group">
                       <button type="button" className="reject-btn" disabled={isCurrentAction}
                         onClick={() => { setRejectingRequestId(req.id); setRejectRemarks(""); }}>
-                        ✕ Reject
+                        <X size={12} strokeWidth={2.5} /> Reject
                       </button>
                       <button type="button" className="accept-btn" disabled={isCurrentAction} onClick={() => handleAccept(req.id)}>
-                        {isCurrentAction ? "Processing..." : "✓ Accept Duty"}
+                        {isCurrentAction ? "Processing..." : <><Check size={12} strokeWidth={2.5} /> Accept Duty</>}
                       </button>
                     </div>
                   ) : (
                     <div className="action-status-note">
                       {isAccepted
-                        ? <span className="note-accepted">✓ You agreed to cover this shift. Forwarded to Admin.</span>
-                        : <span className="note-rejected">✕ You declined this request.</span>}
+                        ? <span className="note-accepted" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><Check size={12} strokeWidth={2.5} /> Agreed to cover shift. Forwarded to Team Lead.</span>
+                        : <span className="note-rejected" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><X size={12} strokeWidth={2.5} /> You declined this request.</span>}
                     </div>
                   )}
                 </div>
@@ -239,7 +271,9 @@ export const SubstituteRequestsPage = () => {
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Decline Substitute Duty</h2>
-              <button className="modal-close-btn" onClick={() => setRejectingRequestId(null)}>✕</button>
+              <button className="modal-close-btn" onClick={() => setRejectingRequestId(null)}>
+                <X size={18} />
+              </button>
             </div>
             <form onSubmit={handleRejectConfirm}>
               <div className="modal-body">

@@ -7,19 +7,33 @@ DROP TABLE IF EXISTS substitute_requests CASCADE;
 DROP TABLE IF EXISTS leave_requests CASCADE;
 DROP TABLE IF EXISTS employee_profiles CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS teams CASCADE;
 
--- 1. Users Table
+-- 1. Teams Table
+CREATE TABLE teams (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) UNIQUE NOT NULL,
+    team_admin_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Users Table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('employee', 'admin')),
+    role VARCHAR(50) NOT NULL CHECK (role IN ('employee', 'admin', 'team_admin', 'superior_admin')),
+    team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Employee Profiles Table
+-- Add foreign key constraint from teams.team_admin_id to users.id
+ALTER TABLE teams ADD CONSTRAINT fk_teams_team_admin FOREIGN KEY (team_admin_id) REFERENCES users(id) ON DELETE SET NULL;
+
+-- 3. Employee Profiles Table
 CREATE TABLE employee_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -37,7 +51,7 @@ CREATE TABLE employee_profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Leave Requests Table
+-- 4. Leave Requests Table
 CREATE TABLE leave_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     employee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -71,7 +85,7 @@ CREATE TABLE leave_requests (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Substitute Requests Table
+-- 5. Substitute Requests Table
 CREATE TABLE substitute_requests (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     leave_request_id UUID NOT NULL REFERENCES leave_requests(id) ON DELETE CASCADE,
@@ -90,7 +104,7 @@ CREATE TABLE substitute_requests (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Leave Balances Table
+-- 6. Leave Balances Table
 CREATE TABLE leave_balances (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     employee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

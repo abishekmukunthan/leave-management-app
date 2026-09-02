@@ -1,6 +1,17 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import {
+  LayoutDashboard,
+  CalendarPlus,
+  CalendarDays,
+  UserCheck,
+  ShieldCheck,
+  BarChart3,
+  User,
+  LogOut,
+  CalendarCheck,
+} from "lucide-react";
 import { useLeave } from "../context/useLeave";
-import { clearStoredUser, isAdmin } from "../services/auth";
+import { clearStoredUser, isTeamAdmin, isSuperiorAdmin } from "../services/auth";
 
 export const Navbar = () => {
   const { loggedInUser, currentUser } = useLeave();
@@ -10,7 +21,10 @@ export const Navbar = () => {
   const displayName = loggedInUser ? loggedInUser.name : currentUser.fullName;
   const displayRole = loggedInUser ? loggedInUser.designation : currentUser.designation;
   const initials = displayName.split(" ").map((n) => n[0]).join("");
-  const showAdmin = loggedInUser ? isAdmin(loggedInUser) : true;
+
+  const userIsSuperiorAdmin = loggedInUser ? isSuperiorAdmin(loggedInUser) : false;
+  const userIsTeamAdmin = loggedInUser ? isTeamAdmin(loggedInUser) : false;
+  const isNormalEmployee = !userIsSuperiorAdmin && !userIsTeamAdmin;
 
   const handleSignOut = () => {
     clearStoredUser();
@@ -19,19 +33,10 @@ export const Navbar = () => {
 
   return (
     <aside className="app-sidebar">
+      {/* Brand Header */}
       <div className="sidebar-brand">
         <div className="brand-logo">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-            <path d="M8 14h.01"></path>
-            <path d="M12 14h.01"></path>
-            <path d="M16 14h.01"></path>
-            <path d="M8 18h.01"></path>
-            <path d="M12 18h.01"></path>
-          </svg>
+          <CalendarCheck size={22} strokeWidth={2.5} />
         </div>
         <div className="brand-text">
           <h2>LeaveEase</h2>
@@ -39,84 +44,81 @@ export const Navbar = () => {
         </div>
       </div>
 
-      <div className="sidebar-section-title">MAIN NAVIGATION</div>
+      <div className="sidebar-section-title">
+        {userIsSuperiorAdmin ? "EXECUTIVE PORTAL" : "MAIN NAVIGATION"}
+      </div>
 
       <nav className="sidebar-nav">
-        <NavLink
-          to="/"
-          className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
-          end
-        >
-          <span className="nav-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-          </span>
-          <span className="nav-label">Dashboard</span>
-        </NavLink>
+        {/* Superior Admin Dashboard Link */}
+        {userIsSuperiorAdmin && (
+          <NavLink
+            to="/superior"
+            className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+          >
+            <span className="nav-icon">
+              <BarChart3 size={18} strokeWidth={2} />
+            </span>
+            <span className="nav-label">Superior Dashboard</span>
+          </NavLink>
+        )}
 
-        <NavLink
-          to="/apply-leave"
-          className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
-        >
-          <span className="nav-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="16"></line>
-              <line x1="8" y1="12" x2="16" y2="12"></line>
-            </svg>
-          </span>
-          <span className="nav-label">Apply Leave</span>
-        </NavLink>
+        {/* Team Admin Dashboard Link */}
+        {userIsTeamAdmin && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+          >
+            <span className="nav-icon">
+              <ShieldCheck size={18} strokeWidth={2} />
+            </span>
+            <span className="nav-label">Team Admin Dashboard</span>
+          </NavLink>
+        )}
 
-        <NavLink
-          to="/my-leaves"
-          className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
-        >
-          <span className="nav-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-          </span>
-          <span className="nav-label">My Leaves</span>
-        </NavLink>
-
-        <NavLink
-          to="/substitute-requests"
-          className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
-        >
-          <span className="nav-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
-          </span>
-          <span className="nav-label">Substitute Requests</span>
-        </NavLink>
-
-        {/* Admin section — only shown to admin users */}
-        {showAdmin && (
+        {/* Regular Employee & Team Admin Personal Navigation */}
+        {!userIsSuperiorAdmin && (
           <>
-            <div className="sidebar-section-title">ADMINISTRATION</div>
+            {isNormalEmployee && (
+              <NavLink
+                to="/"
+                className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+                end
+              >
+                <span className="nav-icon">
+                  <LayoutDashboard size={18} strokeWidth={2} />
+                </span>
+                <span className="nav-label">Dashboard</span>
+              </NavLink>
+            )}
+
             <NavLink
-              to="/admin"
+              to="/apply-leave"
               className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
             >
               <span className="nav-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                </svg>
+                <CalendarPlus size={18} strokeWidth={2} />
               </span>
-              <span className="nav-label">Admin Dashboard</span>
+              <span className="nav-label">Apply Leave</span>
+            </NavLink>
+
+            <NavLink
+              to="/my-leaves"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <CalendarDays size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">My Leaves</span>
+            </NavLink>
+
+            <NavLink
+              to="/substitute-requests"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <UserCheck size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">Substitute Requests</span>
             </NavLink>
           </>
         )}
@@ -128,15 +130,13 @@ export const Navbar = () => {
           className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
         >
           <span className="nav-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
+            <User size={18} strokeWidth={2} />
           </span>
           <span className="nav-label">Profile</span>
         </NavLink>
       </nav>
 
+      {/* User Footer Profile & Sign Out */}
       <div className="sidebar-footer">
         <div className="user-profile-chip" onClick={() => navigate("/profile")}>
           <div className="avatar-circle">
@@ -152,11 +152,7 @@ export const Navbar = () => {
           onClick={handleSignOut}
           title="Sign Out"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
+          <LogOut size={16} strokeWidth={2} />
           <span>Sign Out</span>
         </button>
       </div>

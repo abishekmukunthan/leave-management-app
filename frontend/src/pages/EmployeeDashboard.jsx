@@ -1,5 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import {
+  Palmtree,
+  HeartPulse,
+  Coffee,
+  Clock,
+  Bell,
+  ArrowRight,
+  Plus,
+  Calendar,
+  Inbox,
+  Sparkles,
+} from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { StatusBadge } from "../components/StatusBadge";
 import { getMyLeaves, getSubstituteRequests, DEMO_USERS } from "../services/api";
@@ -32,7 +44,6 @@ export const EmployeeDashboard = () => {
       }
     });
     return () => { isMounted = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicantId]);
 
   const pendingRequests = leaves.filter(
@@ -49,16 +60,21 @@ export const EmployeeDashboard = () => {
       {pendingSubstituteRequests.length > 0 && (
         <div className="alert-card alert-warning">
           <div className="alert-content">
-            <span className="alert-icon">🔔</span>
+            <span className="alert-icon" style={{ display: "inline-flex", alignItems: "center" }}>
+              <Bell size={20} className="text-amber" />
+            </span>
             <div>
               <strong>Substitute Duty Action Needed!</strong>
-              <p>
+              <p style={{ margin: 0, fontSize: "0.8125rem", color: "#78350f" }}>
                 You have {pendingSubstituteRequests.length} incoming substitute request
-                {pendingSubstituteRequests.length > 1 ? "s" : ""} waiting for review.
+                {pendingSubstituteRequests.length > 1 ? "s" : ""} waiting for your response.
               </p>
             </div>
           </div>
-          <Link to="/substitute-requests" className="alert-action-btn">Review Requests →</Link>
+          <Link to="/substitute-requests" className="alert-action-btn" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+            <span>Review Requests</span>
+            <ArrowRight size={13} />
+          </Link>
         </div>
       )}
 
@@ -66,15 +82,26 @@ export const EmployeeDashboard = () => {
       <section className="dashboard-section">
         <div className="section-header">
           <div>
-            <h2 className="section-title">Leave Balances</h2>
+            <h2 className="section-title">
+              <Sparkles size={18} className="text-blue" />
+              <span>Leave Balances</span>
+            </h2>
             <p className="section-subtitle">Your available leave quotas for the current calendar year</p>
           </div>
-          <Link to="/profile" className="section-link">View All Balances →</Link>
+          <Link to="/profile" className="section-link" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+            <span>View Quotas</span>
+            <ArrowRight size={13} />
+          </Link>
         </div>
 
         <div className="balance-grid">
           <div className="balance-card">
-            <div className="balance-header"><span className="balance-icon icon-annual">🌴</span><span className="balance-type">Annual Leave</span></div>
+            <div className="balance-header">
+              <span className="balance-icon icon-annual">
+                <Palmtree size={18} />
+              </span>
+              <span className="balance-type">Annual Leave</span>
+            </div>
             <div className="balance-values">
               <span className="balance-available">{currentUser.leaveBalances.annualLeave.total - currentUser.leaveBalances.annualLeave.used}</span>
               <span className="balance-total">/ {currentUser.leaveBalances.annualLeave.total} Days Left</span>
@@ -86,7 +113,12 @@ export const EmployeeDashboard = () => {
           </div>
 
           <div className="balance-card">
-            <div className="balance-header"><span className="balance-icon icon-sick">🩹</span><span className="balance-type">Sick Leave</span></div>
+            <div className="balance-header">
+              <span className="balance-icon icon-sick">
+                <HeartPulse size={18} />
+              </span>
+              <span className="balance-type">Sick Leave</span>
+            </div>
             <div className="balance-values">
               <span className="balance-available">{currentUser.leaveBalances.sickLeave.total - currentUser.leaveBalances.sickLeave.used}</span>
               <span className="balance-total">/ {currentUser.leaveBalances.sickLeave.total} Days Left</span>
@@ -98,7 +130,12 @@ export const EmployeeDashboard = () => {
           </div>
 
           <div className="balance-card">
-            <div className="balance-header"><span className="balance-icon icon-casual">☕</span><span className="balance-type">Casual Leave</span></div>
+            <div className="balance-header">
+              <span className="balance-icon icon-casual">
+                <Coffee size={18} />
+              </span>
+              <span className="balance-type">Casual Leave</span>
+            </div>
             <div className="balance-values">
               <span className="balance-available">{currentUser.leaveBalances.casualLeave.total - currentUser.leaveBalances.casualLeave.used}</span>
               <span className="balance-total">/ {currentUser.leaveBalances.casualLeave.total} Days Left</span>
@@ -110,7 +147,12 @@ export const EmployeeDashboard = () => {
           </div>
 
           <div className="balance-card">
-            <div className="balance-header"><span className="balance-icon icon-time">⏱️</span><span className="balance-type">Time Permission</span></div>
+            <div className="balance-header">
+              <span className="balance-icon icon-time">
+                <Clock size={18} />
+              </span>
+              <span className="balance-type">Time Permission</span>
+            </div>
             <div className="balance-values">
               <span className="balance-available">{currentUser.leaveBalances.timePermission.total - currentUser.leaveBalances.timePermission.used}</span>
               <span className="balance-total">/ {currentUser.leaveBalances.timePermission.total} Hours Left</span>
@@ -141,7 +183,10 @@ export const EmployeeDashboard = () => {
         </div>
         <div className="summary-divider"></div>
         <div className="summary-action">
-          <Link to="/apply-leave" className="primary-btn pulse-glow">+ New Leave Application</Link>
+          <Link to="/apply-leave" className="primary-btn" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+            <Plus size={15} strokeWidth={2.5} />
+            <span>New Application</span>
+          </Link>
         </div>
       </section>
 
@@ -149,18 +194,33 @@ export const EmployeeDashboard = () => {
       <section className="dashboard-section">
         <div className="section-header">
           <div>
-            <h2 className="section-title">Recent Leave Applications</h2>
+            <h2 className="section-title">
+              <Calendar size={18} className="text-blue" />
+              <span>Recent Leave Applications</span>
+            </h2>
             <p className="section-subtitle">Latest leave requests submitted by {applicantName}</p>
           </div>
-          <Link to="/my-leaves" className="section-link">View All ({leaves.length}) →</Link>
+          <Link to="/my-leaves" className="section-link" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+            <span>View All ({leaves.length})</span>
+            <ArrowRight size={13} />
+          </Link>
         </div>
 
         <div className="table-card">
           {loading ? (
-            <div style={{ padding: "2rem", textAlign: "center" }}><p>⏳ Loading recent leave records...</p></div>
+            <div style={{ padding: "2.5rem", textAlign: "center" }}>
+              <p style={{ color: "#64748b", fontSize: "0.875rem" }}>Loading recent leave records...</p>
+            </div>
           ) : leaves.length === 0 ? (
-            <div style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>
-              <p>No leave requests found yet. Apply for your first leave above!</p>
+            <div className="empty-state">
+              <div className="empty-icon">
+                <Inbox size={24} />
+              </div>
+              <h3>No Leave Applications Yet</h3>
+              <p>You haven't submitted any leave applications. Click the button below to get started.</p>
+              <Link to="/apply-leave" className="primary-btn" style={{ marginTop: "0.5rem" }}>
+                <Plus size={14} /> Apply for Leave
+              </Link>
             </div>
           ) : (
             <div className="table-responsive">
@@ -176,7 +236,7 @@ export const EmployeeDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {leaves.slice(0, 4).map((leave) => {
+                  {leaves.slice(0, 5).map((leave) => {
                     const shortId = leave.id ? `LV-${leave.id.slice(0, 8)}` : "N/A";
                     return (
                       <tr key={leave.id}>
@@ -184,14 +244,20 @@ export const EmployeeDashboard = () => {
                         <td><span className="font-semibold">{leave.leave_type}</span></td>
                         <td>
                           {leave.leave_type === "Time Permission" ? (
-                            <span>📅 {formatDateOnly(leave.permission_date)} <span className="pill-duration">{leave.permission_hours}</span></span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                              <Calendar size={12} className="text-muted" />
+                              <span>{formatDateOnly(leave.permission_date)} <span className="pill-duration">{leave.permission_hours}</span></span>
+                            </div>
                           ) : (
-                            <span>📅 {formatDateOnly(leave.start_date)} to {formatDateOnly(leave.end_date)}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                              <Calendar size={12} className="text-muted" />
+                              <span>{formatDateOnly(leave.start_date)} to {formatDateOnly(leave.end_date)}</span>
+                            </div>
                           )}
                         </td>
                         <td>
                           <span className="substitute-cell">
-                            {leave.substitute_name ? `👤 ${leave.substitute_name}` : "— None —"}
+                            {leave.substitute_name ? leave.substitute_name : "— None —"}
                           </span>
                         </td>
                         <td>{formatAppliedDate(leave.created_at)}</td>
