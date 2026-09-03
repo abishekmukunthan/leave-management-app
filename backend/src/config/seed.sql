@@ -19,16 +19,19 @@ VALUES
     ('d0000000-0000-0000-0000-000000000004', 'HR', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- 2. Insert Users (1 Team Admin, 3 Employees, 1 Superior Admin)
--- Passwords are encrypted with bcrypt (hash corresponds to 'password123')
-INSERT INTO users (id, name, email, password, role, team_id, created_at, updated_at)
+-- Passwords are encrypted with bcrypt (hash corresponds to 'Password@123')
+INSERT INTO users (id, name, email, username, password, role, team_id, is_active, must_change_password, created_at, updated_at)
 VALUES
     (
         'a0000000-0000-0000-0000-000000000001',
         'Priya Fernando',
         'priya.fernando@company.com',
-        '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
+        'priya.fernando',
+        '$2b$10$glc/nu3a5pVhJPINaKhyKOmy4qHw/n664pt9OTZdKTOd56X/JdoJa',
         'team_admin',
         'd0000000-0000-0000-0000-000000000001',
+        true,
+        false,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
@@ -36,9 +39,12 @@ VALUES
         'a0000000-0000-0000-0000-000000000002',
         'Alex Morgan',
         'alex.morgan@company.com',
-        '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
+        'alex.morgan',
+        '$2b$10$glc/nu3a5pVhJPINaKhyKOmy4qHw/n664pt9OTZdKTOd56X/JdoJa',
         'employee',
         'd0000000-0000-0000-0000-000000000001',
+        true,
+        false,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
@@ -46,9 +52,12 @@ VALUES
         'a0000000-0000-0000-0000-000000000003',
         'Michael Chen',
         'michael.chen@company.com',
-        '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
+        'michael.chen',
+        '$2b$10$glc/nu3a5pVhJPINaKhyKOmy4qHw/n664pt9OTZdKTOd56X/JdoJa',
         'employee',
         'd0000000-0000-0000-0000-000000000001',
+        true,
+        false,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
@@ -56,9 +65,12 @@ VALUES
         'a0000000-0000-0000-0000-000000000004',
         'Sarah Johnson',
         'sarah.johnson@company.com',
-        '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
+        'sarah.johnson',
+        '$2b$10$glc/nu3a5pVhJPINaKhyKOmy4qHw/n664pt9OTZdKTOd56X/JdoJa',
         'employee',
         'd0000000-0000-0000-0000-000000000002',
+        true,
+        false,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     ),
@@ -66,9 +78,12 @@ VALUES
         'a0000000-0000-0000-0000-000000000005',
         'Nadia Perera',
         'nadia.perera@company.com',
-        '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
+        'nadia.perera',
+        '$2b$10$glc/nu3a5pVhJPINaKhyKOmy4qHw/n664pt9OTZdKTOd56X/JdoJa',
         'superior_admin',
         NULL,
+        true,
+        false,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
     );

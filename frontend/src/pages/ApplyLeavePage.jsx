@@ -7,11 +7,18 @@ import {
   Send,
   BookOpen,
   User,
+  AlertTriangle,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { applyLeave as submitLeaveApi, DEMO_USERS } from "../services/api";
-import { DEMO_LOGIN_USERS } from "../services/auth";
 import { calculateInclusiveDays, formatDateOnly } from "../utils/dateUtils";
+
+const DEMO_SUBSTITUTE_OPTIONS = [
+  { id: "a0000000-0000-0000-0000-000000000002", name: "Alex Morgan", role: "Senior Frontend Engineer", team: "Engineering" },
+  { id: "a0000000-0000-0000-0000-000000000003", name: "Michael Chen", role: "Fullstack Developer", team: "Engineering" },
+  { id: "a0000000-0000-0000-0000-000000000004", name: "Sarah Johnson", role: "Sales Representative", team: "Sales" },
+  { id: "a0000000-0000-0000-0000-000000000001", name: "Priya Fernando", role: "Engineering Lead & Manager", team: "Engineering" },
+];
 
 export const ApplyLeavePage = () => {
   const navigate = useNavigate();
@@ -31,22 +38,19 @@ export const ApplyLeavePage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Paycut / Quota warning state from backend response
+  const [paycutWarning, setPaycutWarning] = useState(null);
+
   const isTimePermission = leaveType === "Time Permission";
 
   // Build substitute list: all team members except current applicant & superior admin
-  const availableSubstitutes = DEMO_LOGIN_USERS
-    .filter((u) => u.role !== "superior_admin" && u.id !== applicant.id)
-    .map((u) => ({
-      id: u.id,
-      name: u.name,
-      role: u.designation || u.role,
-      team: u.department,
-    }));
+  const availableSubstitutes = DEMO_SUBSTITUTE_OPTIONS.filter(
+    (u) => u.id !== applicant.id
+  );
 
   const daysCount = isTimePermission ? null : calculateInclusiveDays(startDate, endDate, leaveType);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const submitApplication = async (confirmPaycut = false) => {
     setErrorMsg("");
 
     if (isTimePermission) {
@@ -78,19 +82,43 @@ export const ApplyLeavePage = () => {
         reason: reason.trim(),
         substitute_employee_id: substituteId || null,
         assigned_work: assignedWork.trim() || null,
+        confirm_paycut: confirmPaycut,
       };
 
       const response = await submitLeaveApi(leavePayload);
 
+      // Backend quota check exceeded -> requires confirmation
+      if (response.requiresConfirmation) {
+        setPaycutWarning(response);
+        setIsSubmitting(false);
+        return;
+      }
+
+      setPaycutWarning(null);
       showToast(response.message || "Leave application submitted successfully!", "success");
       navigate("/my-leaves");
     } catch (error) {
       console.error("Failed to submit leave:", error);
-      setErrorMsg(error.message || "Failed to submit leave request. Please check backend connection.");
-      showToast(error.message || "Submission failed", "warning");
+      let message = error.message || "Failed to submit leave request. Please check backend connection.";
+      if (error.data?.existingRequest) {
+        const req = error.data.existingRequest;
+        const range = req.start_date === req.end_date ? req.start_date : `${req.start_date} to ${req.end_date}`;
+        message = `You already have an active leave request for this date. (Existing: ${req.leave_type} [${range}] - ${req.status})`;
+      }
+      setErrorMsg(message);
+      showToast(message, "warning");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    submitApplication(false);
+  };
+
+  const handleConfirmPaycut = () => {
+    submitApplication(true);
   };
 
   return (
@@ -110,10 +138,95 @@ export const ApplyLeavePage = () => {
             </div>
           </div>
 
+          {/* Standard Form Error */}
           {errorMsg && (
             <div className="form-error-alert">
               <AlertCircle size={16} />
               <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Quota Exceeded Paycut Warning Card */}
+          {paycutWarning && (
+            <div
+              style={{
+                padding: "1.25rem",
+                borderRadius: "12px",
+                background: "#fef2f2",
+                border: "2px solid #fecaca",
+                marginBottom: "1.5rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", marginBottom: "0.85rem" }}>
+                <AlertTriangle size={24} color="#ef4444" style={{ flexShrink: 0, marginTop: "2px" }} />
+                <div>
+                  <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "#991b1b", margin: 0 }}>
+                    Leave Quota Exceeded — Paycut Warning
+                  </h3>
+                  <p style={{ fontSize: "0.875rem", color: "#7f1d1d", margin: "0.35rem 0 0 0", lineHeight: 1.5 }}>
+                    {paycutWarning.warning || "Your leave balance is not enough. This leave may be considered as no-pay / paycut leave."}
+                  </p>
+                </div>
+              </div>
+
+              {paycutWarning.quotaDetails && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+                    gap: "0.65rem",
+                    padding: "0.85rem",
+                    background: "#ffffff",
+                    borderRadius: "8px",
+                    border: "1px solid #fee2e2",
+                    marginBottom: "1rem",
+                  }}
+                >
+                  <div>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Leave Type</span>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#0f172a" }}>{paycutWarning.quotaDetails.leaveType}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Allocated</span>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#334155" }}>{paycutWarning.quotaDetails.allocated} {paycutWarning.quotaDetails.unit}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Used</span>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "#334155" }}>{paycutWarning.quotaDetails.used} {paycutWarning.quotaDetails.unit}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Remaining</span>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 700, color: paycutWarning.quotaDetails.remaining > 0 ? "#10b981" : "#ef4444" }}>{paycutWarning.quotaDetails.remaining} {paycutWarning.quotaDetails.unit}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Requested</span>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#4f46e5" }}>{paycutWarning.quotaDetails.requested} {paycutWarning.quotaDetails.unit}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Paycut Units</span>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 700, color: "#ef4444" }}>{paycutWarning.quotaDetails.paycutUnits} {paycutWarning.quotaDetails.unit}</div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setPaycutWarning(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="admin-reject-btn"
+                  style={{ backgroundColor: "#ef4444", color: "#ffffff", borderColor: "#dc2626" }}
+                  onClick={handleConfirmPaycut}
+                  disabled={isSubmitting}
+                >
+                  <span>{isSubmitting ? "Submitting..." : "Continue Anyway"}</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -306,10 +419,10 @@ export const ApplyLeavePage = () => {
                 <strong>Team Lead Approval:</strong> Once substitute accepts, your team lead reviews for decision.
               </li>
               <li>
-                <strong>Time Permission:</strong> Limited to a maximum of 3 hours per request session.
+                <strong>Quota Limits:</strong> Exceeding your available quota will trigger a paycut / no-pay warning.
               </li>
               <li>
-                <strong>Emergency Leaves:</strong> Require documentation submission upon return to duty.
+                <strong>Time Permission:</strong> Limited to a maximum of 3 hours per request session.
               </li>
             </ul>
           </div>

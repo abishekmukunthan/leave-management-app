@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart3,
   RefreshCw,
@@ -9,12 +10,16 @@ import {
   Hourglass,
   UserCheck,
   CheckCircle2,
+  XCircle,
   Building2,
   History,
   X,
   Check,
   Inbox,
   Sparkles,
+  AlertTriangle,
+  CalendarDays,
+  ArrowRight,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { StatusBadge } from "../components/StatusBadge";
@@ -40,6 +45,7 @@ const getTeamColor = (teamName) => {
 
 export const SuperiorDashboard = () => {
   const { showToast } = useLeave();
+  const navigate = useNavigate();
 
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -143,11 +149,13 @@ export const SuperiorDashboard = () => {
   const pendingSubstituteApprovals = summaryData?.pendingSubstituteApprovals || [];
   const approvalActivity = summaryData?.approvalActivity || [];
 
+  // Derive rejected leaves list from approvalActivity
+  const rejectedLeavesList = approvalActivity.filter((l) => l.status === "Rejected");
+
   // Generate dynamic company insight from teamSummary data
   const getCompanyInsight = () => {
     if (!teamSummary || teamSummary.length === 0) return null;
 
-    // 1. Check for highest absences today
     const teamsWithAway = [...teamSummary].filter((t) => Number(t.total_away_today) > 0);
     if (teamsWithAway.length > 0) {
       teamsWithAway.sort((a, b) => Number(b.total_away_today) - Number(a.total_away_today));
@@ -172,7 +180,6 @@ export const SuperiorDashboard = () => {
       };
     }
 
-    // 2. Check for pending review backlogs
     const teamsWithPending = [...teamSummary].filter((t) => Number(t.pending_team_admin) > 0);
     if (teamsWithPending.length > 0) {
       teamsWithPending.sort((a, b) => Number(b.pending_team_admin) - Number(a.pending_team_admin));
@@ -185,7 +192,6 @@ export const SuperiorDashboard = () => {
       };
     }
 
-    // 3. Full presence
     return {
       title: "Company Attendance Snapshot",
       message: "All departments are operating at full capacity today with zero active leave or time permission requests.",
@@ -197,11 +203,11 @@ export const SuperiorDashboard = () => {
 
   return (
     <div className="admin-page-container">
-      {/* Header Banner */}
+      {/* 1. Page Header */}
       <div className="admin-header-row">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <h2 className="admin-title">Superior Admin Monitoring Portal</h2>
+            <h2 className="admin-title">Superior Admin Dashboard</h2>
             <span
               style={{
                 fontSize: "0.75rem",
@@ -218,7 +224,7 @@ export const SuperiorDashboard = () => {
             </span>
           </div>
           <p className="admin-subtitle">
-            Executive overview, team breakdowns, and real-time absence tracking across all departments
+            Monitor company-wide leave availability and team activity.
           </p>
         </div>
 
@@ -266,141 +272,195 @@ export const SuperiorDashboard = () => {
       {summaryData && (
         <>
           {/* =========================================================================
-              1. TODAY'S COMPANY LEAVE SNAPSHOT (BENTO GRID WITH HERO CARD)
+              2. MAIN AVAILABILITY SNAPSHOT (TOP 3 PROMINENT REAL-TIME CARDS)
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header-compact">
               <h3 className="section-title-sm">
                 <BarChart3 size={16} className="text-blue" />
-                <span>Today&apos;s Company Leave Snapshot</span>
+                <span>Real-Time Availability Snapshot</span>
               </h3>
-              <span className="text-muted text-sm">Auto-refreshes every 10s</span>
+              <span className="text-muted text-sm">Auto-refreshes live</span>
             </div>
 
-            <div className="superior-bento-grid">
-              {/* Featured Hero Card: Total Away Today */}
-              <div className="featured-away-card">
-                <div>
-                  <div className="featured-card-top">
-                    <div className="featured-icon">
-                      <Users size={22} />
-                    </div>
-                    <span className="featured-pill">Live Today</span>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: "1.25rem",
+              }}
+            >
+              {/* Card 1: Total Away Right Now */}
+              <div
+                className="overview-card"
+                style={{
+                  padding: "1.5rem",
+                  background: "linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)",
+                  color: "#ffffff",
+                  border: "none",
+                  boxShadow: "0 10px 20px -3px rgba(79, 70, 229, 0.35)",
+                }}
+              >
+                <div className="overview-card-header">
+                  <div
+                    className="overview-icon"
+                    style={{
+                      width: "46px",
+                      height: "46px",
+                      background: "rgba(255, 255, 255, 0.2)",
+                      color: "#ffffff",
+                    }}
+                  >
+                    <Users size={24} />
                   </div>
-                  <div className="featured-card-middle">
-                    <div className="featured-count-row">
-                      <span className="featured-count">{overview.totalAwayToday}</span>
-                      <span className="featured-count-label">team members away</span>
-                    </div>
-                    <h4 className="featured-title">Total Away Today</h4>
-                    <p className="featured-subtitle">
-                      Combined full-day leaves and active time permissions across company
-                    </p>
-                  </div>
+                  <span className="overview-count" style={{ fontSize: "2.2rem", color: "#ffffff" }}>
+                    {overview.totalAwayToday}
+                  </span>
                 </div>
-
-                <div className="featured-card-bottom">
-                  <div className="featured-breakdown-row">
-                    <span className="featured-chip">
-                      <Palmtree size={12} style={{ color: "#06B6D4" }} />
-                      <span><strong>{overview.onLeaveToday}</strong> Full/Half-Day</span>
-                    </span>
-                    <span className="featured-chip">
-                      <Clock size={12} style={{ color: "#38BDF8" }} />
-                      <span><strong>{overview.timePermissionToday}</strong> Time Permissions</span>
-                    </span>
-                  </div>
+                <div className="overview-card-body" style={{ marginTop: "0.5rem" }}>
+                  <h4 className="overview-title" style={{ fontSize: "1rem", color: "#ffffff" }}>
+                    Total Away Right Now
+                  </h4>
+                  <p className="overview-subtitle" style={{ color: "#c7d2fe" }}>
+                    Combined leaves & active time permissions
+                  </p>
                 </div>
               </div>
 
-              {/* Card 1: On Leave Today */}
-              <div className="overview-card">
+              {/* Card 2: On Leave Today */}
+              <div
+                className="overview-card"
+                style={{
+                  padding: "1.5rem",
+                  background: "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)",
+                  border: "1.5px solid #a7f3d0",
+                }}
+              >
                 <div className="overview-card-header">
-                  <div className="overview-icon icon-teal">
-                    <Palmtree size={18} />
+                  <div className="overview-icon icon-teal" style={{ width: "46px", height: "46px" }}>
+                    <Palmtree size={24} />
                   </div>
-                  <span className="overview-count">{overview.onLeaveToday}</span>
+                  <span className="overview-count text-green" style={{ fontSize: "2.2rem" }}>
+                    {overview.onLeaveToday}
+                  </span>
                 </div>
-                <div className="overview-card-body">
-                  <h4 className="overview-title">On Leave Today</h4>
-                  <p className="overview-subtitle">Approved standard leaves</p>
+                <div className="overview-card-body" style={{ marginTop: "0.5rem" }}>
+                  <h4 className="overview-title" style={{ fontSize: "1rem", color: "#0f172a" }}>
+                    On Leave Today
+                  </h4>
+                  <p className="overview-subtitle">Approved full & half-day leaves</p>
                 </div>
               </div>
 
-              {/* Card 2: Time Permission Today */}
-              <div className="overview-card">
+              {/* Card 3: Time Permission Today */}
+              <div
+                className="overview-card"
+                style={{
+                  padding: "1.5rem",
+                  background: "linear-gradient(135deg, #ffffff 0%, #ecfeff 100%)",
+                  border: "1.5px solid #a5f3fc",
+                }}
+              >
                 <div className="overview-card-header">
-                  <div className="overview-icon icon-cyan">
-                    <Clock size={18} />
+                  <div className="overview-icon icon-cyan" style={{ width: "46px", height: "46px" }}>
+                    <Clock size={24} />
                   </div>
-                  <span className="overview-count">{overview.timePermissionToday}</span>
+                  <span className="overview-count text-teal" style={{ fontSize: "2.2rem" }}>
+                    {overview.timePermissionToday}
+                  </span>
                 </div>
-                <div className="overview-card-body">
-                  <h4 className="overview-title">Time Permission</h4>
-                  <p className="overview-subtitle">Short duration hours</p>
+                <div className="overview-card-body" style={{ marginTop: "0.5rem" }}>
+                  <h4 className="overview-title" style={{ fontSize: "1rem", color: "#0f172a" }}>
+                    Time Permission Today
+                  </h4>
+                  <p className="overview-subtitle">Active short duration permissions</p>
                 </div>
               </div>
 
-              {/* Card 3: Total Requests */}
-              <div className="overview-card">
+              {/* Card 4: Compact Eye-Catching Leave Calendar Shortcut Card */}
+              <div
+                className="overview-card"
+                onClick={() => navigate("/calendar")}
+                style={{
+                  padding: "1.5rem",
+                  background: "linear-gradient(135deg, #ffffff 0%, #f4f4ff 100%)",
+                  border: "1.5px solid #c7d2fe",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#4f46e5";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 8px 16px -2px rgba(79, 70, 229, 0.15)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#c7d2fe";
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(15, 23, 42, 0.05)";
+                }}
+              >
                 <div className="overview-card-header">
-                  <div className="overview-icon icon-blue">
-                    <FileText size={18} />
+                  <div
+                    className="overview-icon"
+                    style={{
+                      width: "46px",
+                      height: "46px",
+                      borderRadius: "12px",
+                      backgroundColor: "#eef2ff",
+                      color: "#4f46e5",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <CalendarDays size={24} />
                   </div>
-                  <span className="overview-count text-blue">{overview.totalRequests}</span>
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      color: "#4f46e5",
+                      backgroundColor: "#eef2ff",
+                      padding: "0.25rem 0.6rem",
+                      borderRadius: "9999px",
+                    }}
+                  >
+                    Calendar
+                  </span>
                 </div>
-                <div className="overview-card-body">
-                  <h4 className="overview-title">Total Requests</h4>
-                  <p className="overview-subtitle">All-time applications</p>
+                <div className="overview-card-body" style={{ marginTop: "0.5rem" }}>
+                  <h4 className="overview-title" style={{ fontSize: "1rem", color: "#0f172a" }}>
+                    Leave Calendar
+                  </h4>
+                  <p className="overview-subtitle">
+                    View monthly company-wide leave availability
+                  </p>
                 </div>
-              </div>
-
-              {/* Card 4: Pending Team Lead */}
-              <div className="overview-card">
-                <div className="overview-card-header">
-                  <div className="overview-icon icon-amber">
-                    <Hourglass size={18} />
-                  </div>
-                  <span className="overview-count text-amber">{overview.pendingTeamAdminApprovals}</span>
-                </div>
-                <div className="overview-card-body">
-                  <h4 className="overview-title">Pending Team Lead</h4>
-                  <p className="overview-subtitle">Awaiting lead decisions</p>
-                </div>
-              </div>
-
-              {/* Card 5: Pending Substitute */}
-              <div className="overview-card">
-                <div className="overview-card-header">
-                  <div className="overview-icon icon-blue">
-                    <UserCheck size={18} />
-                  </div>
-                  <span className="overview-count text-blue">{overview.pendingSubstituteApprovals}</span>
-                </div>
-                <div className="overview-card-body">
-                  <h4 className="overview-title">Pending Substitute</h4>
-                  <p className="overview-subtitle">Awaiting peer handover</p>
-                </div>
-              </div>
-
-              {/* Card 6: Approved Requests */}
-              <div className="overview-card">
-                <div className="overview-card-header">
-                  <div className="overview-icon icon-green">
-                    <CheckCircle2 size={18} />
-                  </div>
-                  <span className="overview-count text-green">{overview.approvedRequests}</span>
-                </div>
-                <div className="overview-card-body">
-                  <h4 className="overview-title">Approved Leaves</h4>
-                  <p className="overview-subtitle">{overview.rejectedRequests} declined</p>
+                <div
+                  style={{
+                    marginTop: "0.75rem",
+                    paddingTop: "0.5rem",
+                    borderTop: "1px dashed #e2e8f0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontSize: "0.8125rem",
+                    fontWeight: 700,
+                    color: "#4f46e5",
+                  }}
+                >
+                  <span>Open Calendar</span>
+                  <ArrowRight size={15} />
                 </div>
               </div>
             </div>
 
-            {/* Smart Dynamic Insight Card */}
+            {/* Dynamic Insight Banner */}
             {insight && (
-              <div className="insight-banner">
+              <div className="insight-banner" style={{ marginTop: "1.25rem" }}>
                 <div className="insight-content">
                   <div className="insight-icon-container">
                     <Sparkles size={18} />
@@ -416,7 +476,108 @@ export const SuperiorDashboard = () => {
           </section>
 
           {/* =========================================================================
-              2. DEPARTMENT AVAILABILITY OVERVIEW (TEAM SUMMARY TABLE)
+              3. REQUEST SUMMARY (COMPACT GRID SECTION)
+             ========================================================================= */}
+          <section className="dashboard-section">
+            <div className="section-header-compact">
+              <h3 className="section-title-sm">
+                <FileText size={16} className="text-blue" />
+                <span>Request Summary</span>
+              </h3>
+              <span className="text-muted text-sm">Overall application statistics</span>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                gap: "1rem",
+              }}
+            >
+              {/* Total Requests */}
+              <div className="overview-card" style={{ padding: "1rem" }}>
+                <div className="overview-card-header" style={{ marginBottom: "0.35rem" }}>
+                  <div className="overview-icon icon-blue">
+                    <FileText size={16} />
+                  </div>
+                  <span className="overview-count text-blue" style={{ fontSize: "1.35rem" }}>
+                    {overview.totalRequests}
+                  </span>
+                </div>
+                <div className="overview-card-body">
+                  <h4 className="overview-title" style={{ fontSize: "0.8125rem" }}>Total Requests</h4>
+                  <p className="overview-subtitle">All submitted</p>
+                </div>
+              </div>
+
+              {/* Approved Requests */}
+              <div className="overview-card" style={{ padding: "1rem" }}>
+                <div className="overview-card-header" style={{ marginBottom: "0.35rem" }}>
+                  <div className="overview-icon icon-green">
+                    <CheckCircle2 size={16} />
+                  </div>
+                  <span className="overview-count text-green" style={{ fontSize: "1.35rem" }}>
+                    {overview.approvedRequests}
+                  </span>
+                </div>
+                <div className="overview-card-body">
+                  <h4 className="overview-title" style={{ fontSize: "0.8125rem" }}>Approved Requests</h4>
+                  <p className="overview-subtitle">Fully approved</p>
+                </div>
+              </div>
+
+              {/* Rejected Requests */}
+              <div className="overview-card" style={{ padding: "1rem" }}>
+                <div className="overview-card-header" style={{ marginBottom: "0.35rem" }}>
+                  <div className="overview-icon icon-red">
+                    <XCircle size={16} />
+                  </div>
+                  <span className="overview-count text-red" style={{ fontSize: "1.35rem" }}>
+                    {overview.rejectedRequests}
+                  </span>
+                </div>
+                <div className="overview-card-body">
+                  <h4 className="overview-title" style={{ fontSize: "0.8125rem" }}>Rejected Requests</h4>
+                  <p className="overview-subtitle">Declined by leads</p>
+                </div>
+              </div>
+
+              {/* Pending Team Lead */}
+              <div className="overview-card" style={{ padding: "1rem" }}>
+                <div className="overview-card-header" style={{ marginBottom: "0.35rem" }}>
+                  <div className="overview-icon icon-amber">
+                    <Hourglass size={16} />
+                  </div>
+                  <span className="overview-count text-amber" style={{ fontSize: "1.35rem" }}>
+                    {overview.pendingTeamAdminApprovals}
+                  </span>
+                </div>
+                <div className="overview-card-body">
+                  <h4 className="overview-title" style={{ fontSize: "0.8125rem" }}>Pending Team Lead</h4>
+                  <p className="overview-subtitle">Awaiting decision</p>
+                </div>
+              </div>
+
+              {/* Pending Substitute */}
+              <div className="overview-card" style={{ padding: "1rem" }}>
+                <div className="overview-card-header" style={{ marginBottom: "0.35rem" }}>
+                  <div className="overview-icon icon-blue">
+                    <UserCheck size={16} />
+                  </div>
+                  <span className="overview-count text-blue" style={{ fontSize: "1.35rem" }}>
+                    {overview.pendingSubstituteApprovals}
+                  </span>
+                </div>
+                <div className="overview-card-body">
+                  <h4 className="overview-title" style={{ fontSize: "0.8125rem" }}>Pending Substitute</h4>
+                  <p className="overview-subtitle">Awaiting peer handover</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* =========================================================================
+              4. DEPARTMENT AVAILABILITY OVERVIEW (TEAM SUMMARY TABLE)
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header">
@@ -525,7 +686,7 @@ export const SuperiorDashboard = () => {
           </section>
 
           {/* =========================================================================
-              3. PEOPLE ON LEAVE TODAY
+              5. PEOPLE ON LEAVE TODAY
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header">
@@ -584,6 +745,24 @@ export const SuperiorDashboard = () => {
                           </td>
                           <td>
                             <span className="font-semibold">{leave.leave_type}</span>
+                            {leave.is_paycut_leave && (
+                              <span
+                                style={{
+                                  display: "block",
+                                  marginTop: "0.2rem",
+                                  fontSize: "0.7rem",
+                                  fontWeight: 700,
+                                  padding: "0.15rem 0.45rem",
+                                  borderRadius: "9999px",
+                                  background: "#fef2f2",
+                                  color: "#ef4444",
+                                  border: "1px solid #fecaca",
+                                  width: "fit-content",
+                                }}
+                              >
+                                Paycut / No-pay
+                              </span>
+                            )}
                           </td>
                           <td>
                             <span className="pill-duration">{getDurationText(leave)}</span>
@@ -621,7 +800,7 @@ export const SuperiorDashboard = () => {
           </section>
 
           {/* =========================================================================
-              4. TIME PERMISSIONS TODAY
+              6. TIME PERMISSIONS TODAY
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header">
@@ -713,7 +892,7 @@ export const SuperiorDashboard = () => {
           </section>
 
           {/* =========================================================================
-              5. PENDING TEAM LEAD APPROVALS
+              7. PENDING TEAM LEAD APPROVALS
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header">
@@ -811,7 +990,7 @@ export const SuperiorDashboard = () => {
           </section>
 
           {/* =========================================================================
-              6. PENDING SUBSTITUTE APPROVALS
+              8. PENDING SUBSTITUTE APPROVALS
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header">
@@ -911,14 +1090,114 @@ export const SuperiorDashboard = () => {
           </section>
 
           {/* =========================================================================
-              7. APPROVAL ACTIVITY
+              9. REJECTED LEAVES SECTION
+             ========================================================================= */}
+          <section className="dashboard-section">
+            <div className="section-header">
+              <div>
+                <h3 className="section-title">
+                  <XCircle size={18} className="text-red" />
+                  <span>Rejected Leaves</span>
+                </h3>
+                <p className="section-subtitle">
+                  Applications declined by team leads or rejected during review
+                </p>
+              </div>
+              <span className="counter-pill pill-red">{rejectedLeavesList.length} Rejected</span>
+            </div>
+
+            <div className="table-card">
+              {rejectedLeavesList.length === 0 ? (
+                <div className="empty-state-compact">
+                  <CheckCircle2 size={24} style={{ color: "#10B981" }} />
+                  <p>No rejected leave applications recorded.</p>
+                </div>
+              ) : (
+                <div className="table-responsive">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Employee Name</th>
+                        <th>Team / Department</th>
+                        <th>Leave Type</th>
+                        <th>Duration</th>
+                        <th>Rejected By / Admin</th>
+                        <th>Rejected At</th>
+                        <th>Admin Remarks</th>
+                        <th>Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rejectedLeavesList.map((leave) => (
+                        <tr key={`rejected-${leave.id}`}>
+                          <td>
+                            <div className="employee-info-cell">
+                              <strong className="employee-name">{leave.employee_name}</strong>
+                              <span className="employee-id-sub">
+                                {leave.employee_code || leave.employee_email}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="team-name-cell">
+                              <span
+                                className="team-dot"
+                                style={{ backgroundColor: getTeamColor(leave.team_name) }}
+                              ></span>
+                              <span className="badge-default" style={{ fontSize: "0.75rem" }}>
+                                {leave.team_name}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="font-semibold">{leave.leave_type}</span>
+                          </td>
+                          <td>
+                            <span className="pill-duration">{getDurationText(leave)}</span>
+                          </td>
+                          <td>
+                            <span className="text-red font-medium" style={{ fontSize: "0.8125rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                              <X size={12} strokeWidth={2.5} /> {leave.approver_name || "Team Lead"}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="text-muted" style={{ fontSize: "0.8125rem" }}>
+                              {formatDateTime(leave.rejected_at) !== "N/A"
+                                ? formatDateTime(leave.rejected_at)
+                                : formatAppliedDate(leave.updated_at)}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="table-truncate-text" title={leave.admin_remarks || "No remarks provided"}>
+                              {leave.admin_remarks || "—"}
+                            </div>
+                          </td>
+                          <td>
+                            <button
+                              className="table-action-link"
+                              onClick={() => setSelectedLeave(leave)}
+                            >
+                              Review
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* =========================================================================
+              10. APPROVAL ACTIVITY
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header">
               <div>
                 <h3 className="section-title">
                   <History size={18} className="text-blue" />
-                  <span>Recent Decision & Approval Activity</span>
+                  <span>Approval Activity History</span>
                 </h3>
                 <p className="section-subtitle">
                   Audit trail of recently approved and rejected leave applications
@@ -1042,15 +1321,39 @@ export const SuperiorDashboard = () => {
                 <StatusBadge status={selectedLeave.status} />
               </div>
 
+              {selectedLeave.is_paycut_leave && (
+                <div
+                  style={{
+                    padding: "0.85rem 1.1rem",
+                    borderRadius: "10px",
+                    background: "#fef2f2",
+                    border: "1.5px solid #fecaca",
+                    marginBottom: "1.25rem",
+                    color: "#991b1b",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, fontSize: "0.9375rem" }}>
+                    <AlertTriangle size={18} color="#ef4444" />
+                    <span>Paycut / No-pay Leave Application</span>
+                  </div>
+                  <p style={{ margin: "0.35rem 0 0 0", fontSize: "0.8125rem", color: "#7f1d1d", lineHeight: 1.4 }}>
+                    {selectedLeave.quota_warning_message || "This leave application exceeds the employee's available quota."}
+                  </p>
+                  <div style={{ marginTop: "0.5rem", fontSize: "0.8125rem", fontWeight: 600 }}>
+                    Paycut Exceeded Units: <span style={{ color: "#ef4444", fontWeight: 700 }}>{selectedLeave.paycut_units}</span> (Requested: {selectedLeave.requested_units})
+                  </div>
+                </div>
+              )}
+
               <div className="modal-grid-2">
                 <div className="modal-detail-item">
                   <span className="detail-label">Employee</span>
                   <span className="detail-value font-semibold">
-                    {selectedLeave.employee_name} ({selectedLeave.employee_email})
+                    {selectedLeave.employee_name}
                   </span>
                 </div>
                 <div className="modal-detail-item">
-                  <span className="detail-label">Department</span>
+                  <span className="detail-label">Department / Team</span>
                   <div className="team-name-cell" style={{ marginTop: "0.2rem" }}>
                     <span
                       className="team-dot"
@@ -1071,9 +1374,9 @@ export const SuperiorDashboard = () => {
                   </span>
                 </div>
                 <div className="modal-detail-item">
-                  <span className="detail-label">Duration</span>
-                  <span className="detail-value font-semibold">
-                    {getDurationText(selectedLeave)}
+                  <span className="detail-label">Applied Date</span>
+                  <span className="detail-value">
+                    {formatAppliedDate(selectedLeave.created_at)}
                   </span>
                 </div>
               </div>
@@ -1088,13 +1391,20 @@ export const SuperiorDashboard = () => {
                   </span>
                 </div>
                 <div className="modal-detail-item">
-                  <span className="detail-label">Designated Substitute</span>
-                  <span className="detail-value">
-                    {selectedLeave.substitute_name
-                      ? `${selectedLeave.substitute_name} (Status: ${selectedLeave.substitute_status || "Pending"})`
-                      : "No substitute assigned"}
+                  <span className="detail-label">Calculated Duration</span>
+                  <span className="detail-value font-semibold text-blue">
+                    {getDurationText(selectedLeave)}
                   </span>
                 </div>
+              </div>
+
+              <div className="modal-detail-item">
+                <span className="detail-label">Designated Substitute</span>
+                <span className="detail-value font-medium">
+                  {selectedLeave.substitute_name
+                    ? `${selectedLeave.substitute_name} (Status: ${selectedLeave.substitute_status || "Pending"})`
+                    : "No substitute assigned"}
+                </span>
               </div>
 
               <div className="modal-detail-item">
@@ -1116,14 +1426,14 @@ export const SuperiorDashboard = () => {
                 </div>
               )}
 
-              {/* Approval Details */}
+              {/* Approval details */}
               {selectedLeave.status === "Approved" && (
                 <div className="admin-decision-box approval-box">
                   <div className="modal-grid-2">
                     <div className="modal-detail-item">
                       <span className="detail-label">Approved By</span>
                       <span className="detail-value font-semibold text-green" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                        <Check size={14} strokeWidth={2.5} /> {selectedLeave.approver_name || selectedLeave.approved_by || "Team Lead"}
+                        <Check size={14} strokeWidth={2.5} /> {selectedLeave.approver_name || "Team Lead"}
                       </span>
                     </div>
                     <div className="modal-detail-item">
@@ -1136,7 +1446,7 @@ export const SuperiorDashboard = () => {
                 </div>
               )}
 
-              {/* Rejection Details */}
+              {/* Rejection details */}
               {selectedLeave.status === "Rejected" && (
                 <div className="admin-decision-box rejection-box">
                   <div className="modal-grid-2">
@@ -1162,11 +1472,6 @@ export const SuperiorDashboard = () => {
                   </div>
                 </div>
               )}
-
-              {/* Superior Admin Notice */}
-              <div style={{ marginTop: "1rem", padding: "0.75rem", background: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "0.8125rem", color: "#64748B" }}>
-                🔒 <em>Superior Admin Monitoring Mode: Decisions are authorized and managed by designated Team Leads.</em>
-              </div>
             </div>
 
             <div className="modal-footer">

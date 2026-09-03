@@ -1,3 +1,5 @@
+import { getToken } from "./auth";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
 
 export const DEMO_USERS = {
@@ -43,12 +45,17 @@ export const DEMO_USERS = {
   },
 };
 
-// Generic helper for fetch requests with standardized error handling
+// Generic helper for fetch requests with standardized error handling & Bearer token
 const fetchJson = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
   const defaultHeaders = {
     "Content-Type": "application/json",
   };
+
+  const token = getToken();
+  if (token) {
+    defaultHeaders["Authorization"] = `Bearer ${token}`;
+  }
 
   const response = await fetch(url, {
     ...options,
@@ -70,6 +77,26 @@ const fetchJson = async (endpoint, options = {}) => {
   }
 
   return data;
+};
+
+// 0. POST /api/auth/login - Authenticate with username/password
+export const loginUser = async (username, password) => {
+  return await fetchJson("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+};
+
+// 0b. POST /api/auth/change-password - Change temporary or existing password
+export const changePassword = async (userId, currentPassword, newPassword) => {
+  return await fetchJson("/api/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({
+      user_id: userId,
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
 };
 
 // 1. POST /api/leaves - Apply for leave
@@ -133,3 +160,103 @@ export const rejectLeaveRequest = async (leaveRequestId, admin_remarks, rejected
 export const getSuperiorDashboardSummary = async () => {
   return await fetchJson("/api/superior/dashboard-summary");
 };
+
+// 10. Superior User Management API Functions
+export const getSuperiorUsers = async () => {
+  return await fetchJson("/api/superior/users");
+};
+
+export const createSuperiorUser = async (userData) => {
+  return await fetchJson("/api/superior/users", {
+    method: "POST",
+    body: JSON.stringify(userData),
+  });
+};
+
+export const resetUserPassword = async (userId) => {
+  return await fetchJson(`/api/superior/users/${encodeURIComponent(userId)}/reset-password`, {
+    method: "PUT",
+  });
+};
+
+export const deactivateUser = async (userId) => {
+  return await fetchJson(`/api/superior/users/${encodeURIComponent(userId)}/deactivate`, {
+    method: "PUT",
+  });
+};
+
+// 11. Superior Teams Configuration API Functions
+export const getSuperiorTeams = async () => {
+  return await fetchJson("/api/superior/teams");
+};
+
+export const createSuperiorTeam = async (teamData) => {
+  return await fetchJson("/api/superior/teams", {
+    method: "POST",
+    body: JSON.stringify(teamData),
+  });
+};
+
+export const updateSuperiorTeam = async (teamId, teamData) => {
+  return await fetchJson(`/api/superior/teams/${encodeURIComponent(teamId)}`, {
+    method: "PUT",
+    body: JSON.stringify(teamData),
+  });
+};
+
+export const deactivateSuperiorTeam = async (teamId) => {
+  return await fetchJson(`/api/superior/teams/${encodeURIComponent(teamId)}/deactivate`, {
+    method: "PUT",
+  });
+};
+
+// 12. Superior Leave Types Configuration API Functions
+export const getSuperiorLeaveTypes = async () => {
+  return await fetchJson("/api/superior/leave-types");
+};
+
+export const createSuperiorLeaveType = async (leaveTypeData) => {
+  return await fetchJson("/api/superior/leave-types", {
+    method: "POST",
+    body: JSON.stringify(leaveTypeData),
+  });
+};
+
+export const updateSuperiorLeaveType = async (leaveTypeId, leaveTypeData) => {
+  return await fetchJson(`/api/superior/leave-types/${encodeURIComponent(leaveTypeId)}`, {
+    method: "PUT",
+    body: JSON.stringify(leaveTypeData),
+  });
+};
+
+export const deactivateSuperiorLeaveType = async (leaveTypeId) => {
+  return await fetchJson(`/api/superior/leave-types/${encodeURIComponent(leaveTypeId)}/deactivate`, {
+    method: "PUT",
+  });
+};
+
+// 13. Superior User Leave Entitlements / Quotas API Functions
+export const getSuperiorUserLeaveEntitlements = async (userId) => {
+  return await fetchJson(`/api/superior/users/${encodeURIComponent(userId)}/leave-entitlements`);
+};
+
+export const updateSuperiorUserLeaveEntitlements = async (userId, entitlements) => {
+  return await fetchJson(`/api/superior/users/${encodeURIComponent(userId)}/leave-entitlements`, {
+    method: "PUT",
+    body: JSON.stringify({ entitlements }),
+  });
+};
+
+// 14. Calendar API Functions
+export const getCalendarMonthSummary = async (year, month, userId) => {
+  return await fetchJson(
+    `/api/calendar/month?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}&user_id=${encodeURIComponent(userId)}`
+  );
+};
+
+export const getCalendarDayDetails = async (dateStr, userId) => {
+  return await fetchJson(
+    `/api/calendar/day?date=${encodeURIComponent(dateStr)}&user_id=${encodeURIComponent(userId)}`
+  );
+};
+

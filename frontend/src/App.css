@@ -2004,11 +2004,14 @@
   background-color: #F8FAFC;
   border: 1px solid #E2E8F0;
   border-radius: var(--radius-sm);
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   font-size: 0.8125rem;
-  color: #0F172A;
+  color: #334155;
+  line-height: 1.5;
   white-space: pre-wrap;
-  line-height: 1.45;
+  word-break: break-word;
+  max-height: 160px;
+  overflow-y: auto;
 }
 
 .admin-decision-box {
@@ -2315,3 +2318,137 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ==========================================================================
+   Calendar Page Component Styles (Modern 2026 SaaS Grid)
+   ========================================================================== */
+.calendar-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.calendar-weekday-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  text-align: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.calendar-weekday-cell {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0;
+}
+
+.calendar-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+.calendar-day-cell {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-sm);
+  min-height: 96px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  position: relative;
+}
+
+.calendar-day-cell:hover:not(.cell-empty) {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.cell-empty {
+  background-color: #F8FAFC;
+  border-color: #F1F5F9;
+  cursor: default;
+}
+
+.cell-today {
+  border: 1.5px solid #06B6D4;
+  background-color: #ECFEFF;
+}
+
+.cell-selected {
+  border: 2px solid #4F46E5 !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+  background-color: #EEF2FF !important;
+}
+
+.day-cell-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.day-number {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.day-number-today {
+  color: #0891B2;
+}
+
+.today-chip {
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-full);
+  background-color: #06B6D4;
+  color: #FFFFFF;
+  text-transform: uppercase;
+}
+
+.day-cell-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+}
+
+.cal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.12rem 0.4rem;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.badge-leave {
+  background-color: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FDE68A;
+}
+
+.badge-time {
+  background-color: #E0F2FE;
+  color: #0369A1;
+  border: 1px solid #BAE6FD;
+}
+
+.badge-away {
+  background-color: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #C7D2FE;
+  font-weight: 700;
+}
+

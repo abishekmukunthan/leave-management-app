@@ -8,12 +8,24 @@ import { MyLeavesPage } from "./pages/MyLeavesPage";
 import { SubstituteRequestsPage } from "./pages/SubstituteRequestsPage";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { SuperiorDashboard } from "./pages/SuperiorDashboard";
+import { UserManagementPage } from "./pages/UserManagementPage";
+import { ConfigurationPage } from "./pages/ConfigurationPage";
 import { EmployeeProfilePage } from "./pages/EmployeeProfilePage";
+import { CalendarPage } from "./pages/CalendarPage";
+import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { getStoredUser, isTeamAdmin, isSuperiorAdmin } from "./services/auth";
 import "./App.css";
 
-// Redirects to /login if no user is stored in localStorage
+// Redirects to /login if no user is stored in localStorage, or to /change-password if forced password change is active
 const RequireAuth = ({ children }) => {
+  const user = getStoredUser();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.must_change_password) return <Navigate to="/change-password" replace />;
+  return children;
+};
+
+// Route guard for Change Password page
+const RequireChangePasswordAuth = ({ children }) => {
   const user = getStoredUser();
   if (!user) return <Navigate to="/login" replace />;
   return children;
@@ -23,6 +35,7 @@ const RequireAuth = ({ children }) => {
 const RequireTeamAdmin = ({ children }) => {
   const user = getStoredUser();
   if (!user) return <Navigate to="/login" replace />;
+  if (user.must_change_password) return <Navigate to="/change-password" replace />;
   if (isSuperiorAdmin(user)) return <Navigate to="/superior" replace />;
   if (!isTeamAdmin(user)) return <Navigate to="/" replace />;
   return children;
@@ -32,6 +45,7 @@ const RequireTeamAdmin = ({ children }) => {
 const RequireSuperiorAdmin = ({ children }) => {
   const user = getStoredUser();
   if (!user) return <Navigate to="/login" replace />;
+  if (user.must_change_password) return <Navigate to="/change-password" replace />;
   if (!isSuperiorAdmin(user)) {
     return isTeamAdmin(user) ? <Navigate to="/admin" replace /> : <Navigate to="/" replace />;
   }
@@ -42,6 +56,7 @@ const RequireSuperiorAdmin = ({ children }) => {
 const RequireNonSuperior = ({ children }) => {
   const user = getStoredUser();
   if (!user) return <Navigate to="/login" replace />;
+  if (user.must_change_password) return <Navigate to="/change-password" replace />;
   if (isSuperiorAdmin(user)) return <Navigate to="/superior" replace />;
   return children;
 };
@@ -60,6 +75,16 @@ function App() {
         <Routes>
           {/* Public Login Route */}
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Standalone Forced Change Password Route */}
+          <Route
+            path="/change-password"
+            element={
+              <RequireChangePasswordAuth>
+                <ChangePasswordPage />
+              </RequireChangePasswordAuth>
+            }
+          />
 
           {/* Authenticated Application Layout */}
           <Route
@@ -119,6 +144,23 @@ function App() {
                 </RequireSuperiorAdmin>
               }
             />
+            <Route
+              path="superior/users"
+              element={
+                <RequireSuperiorAdmin>
+                  <UserManagementPage />
+                </RequireSuperiorAdmin>
+              }
+            />
+            <Route
+              path="superior/configuration"
+              element={
+                <RequireSuperiorAdmin>
+                  <ConfigurationPage />
+                </RequireSuperiorAdmin>
+              }
+            />
+            <Route path="calendar" element={<CalendarPage />} />
             <Route path="profile" element={<EmployeeProfilePage />} />
           </Route>
 

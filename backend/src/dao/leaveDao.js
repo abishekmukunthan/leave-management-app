@@ -5,11 +5,16 @@ export const leaveDao = {
   async createLeaveWithSubstitute({
     employee_id,
     leave_type,
+    leave_type_id,
     start_date,
     end_date,
     permission_date,
     permission_hours,
     reason,
+    requested_units,
+    is_paycut_leave,
+    paycut_units,
+    quota_warning_message,
     substitute_employee_id,
     assigned_work,
   }) {
@@ -22,24 +27,34 @@ export const leaveDao = {
         INSERT INTO leave_requests (
           employee_id,
           leave_type,
+          leave_type_id,
           start_date,
           end_date,
           permission_date,
           permission_hours,
           reason,
+          requested_units,
+          is_paycut_leave,
+          paycut_units,
+          quota_warning_message,
           status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'Waiting for Substitute Approval')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'Waiting for Substitute Approval')
         RETURNING *;
       `;
       const leaveRes = await client.query(leaveInsertQuery, [
         employee_id,
         leave_type,
+        leave_type_id || null,
         start_date,
         end_date,
         permission_date,
         permission_hours,
         reason,
+        requested_units || 0,
+        Boolean(is_paycut_leave),
+        paycut_units || 0,
+        quota_warning_message || null,
       ]);
       const leave = leaveRes.rows[0];
 
@@ -75,34 +90,49 @@ export const leaveDao = {
   async createLeaveDirect({
     employee_id,
     leave_type,
+    leave_type_id,
     start_date,
     end_date,
     permission_date,
     permission_hours,
     reason,
+    requested_units,
+    is_paycut_leave,
+    paycut_units,
+    quota_warning_message,
   }) {
     const query = `
       INSERT INTO leave_requests (
         employee_id,
         leave_type,
+        leave_type_id,
         start_date,
         end_date,
         permission_date,
         permission_hours,
         reason,
+        requested_units,
+        is_paycut_leave,
+        paycut_units,
+        quota_warning_message,
         status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'Waiting for Admin Approval')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'Waiting for Admin Approval')
       RETURNING *;
     `;
     const result = await pool.query(query, [
       employee_id,
       leave_type,
+      leave_type_id || null,
       start_date,
       end_date,
       permission_date,
       permission_hours,
       reason,
+      requested_units || 0,
+      Boolean(is_paycut_leave),
+      paycut_units || 0,
+      quota_warning_message || null,
     ]);
     return result.rows[0];
   },
@@ -114,6 +144,11 @@ export const leaveDao = {
         lr.id,
         lr.employee_id,
         lr.leave_type,
+        lr.leave_type_id,
+        lr.requested_units,
+        lr.is_paycut_leave,
+        lr.paycut_units,
+        lr.quota_warning_message,
         lr.start_date,
         lr.end_date,
         lr.permission_date,
@@ -148,6 +183,30 @@ export const leaveDao = {
   async getLeaveById(id) {
     const query = `SELECT * FROM leave_requests WHERE id = $1;`;
     const result = await pool.query(query, [id]);
+    return result.rows[0] || null;
+  },
+
+  // Check for an existing active (non-rejected, non-cancelled) overlapping leave request for an employee
+  async findOverlappingLeave(employee_id, startDate, endDate) {
+    const query = `
+      SELECT 
+        id,
+        employee_id,
+        leave_type,
+        start_date,
+        end_date,
+        permission_date,
+        status,
+        created_at
+      FROM leave_requests
+      WHERE employee_id = $1
+        AND LOWER(status) NOT IN ('rejected', 'cancelled', 'canceled')
+        AND COALESCE(start_date, permission_date)::date <= $3::date
+        AND COALESCE(end_date, permission_date)::date >= $2::date
+      ORDER BY created_at DESC
+      LIMIT 1;
+    `;
+    const result = await pool.query(query, [employee_id, startDate, endDate]);
     return result.rows[0] || null;
   },
 };

@@ -1,74 +1,45 @@
-// Demo users available for selection
-export const DEMO_LOGIN_USERS = [
-  {
-    id: "a0000000-0000-0000-0000-000000000002",
-    name: "Alex Morgan",
-    email: "alex.morgan@company.com",
-    role: "employee",
-    designation: "Senior Frontend Engineer",
-    department: "Engineering",
-    team: "Engineering",
-    avatarColor: "#6366f1",
-  },
-  {
-    id: "a0000000-0000-0000-0000-000000000003",
-    name: "Michael Chen",
-    email: "michael.chen@company.com",
-    role: "employee",
-    designation: "Fullstack Developer",
-    department: "Engineering",
-    team: "Engineering",
-    avatarColor: "#0ea5e9",
-  },
-  {
-    id: "a0000000-0000-0000-0000-000000000004",
-    name: "Sarah Johnson",
-    email: "sarah.johnson@company.com",
-    role: "employee",
-    designation: "Sales Representative",
-    department: "Sales",
-    team: "Sales",
-    avatarColor: "#f59e0b",
-  },
-  {
-    id: "a0000000-0000-0000-0000-000000000001",
-    name: "Priya Fernando",
-    email: "priya.fernando@company.com",
-    role: "team_admin",
-    designation: "Engineering Lead & Manager",
-    department: "Engineering",
-    team: "Engineering",
-    avatarColor: "#8b5cf6",
-  },
-  {
-    id: "a0000000-0000-0000-0000-000000000005",
-    name: "Nadia Perera",
-    email: "nadia.perera@company.com",
-    role: "superior_admin",
-    designation: "Head of Operations & Superior Admin",
-    department: "Executive Management",
-    team: "Executive",
-    avatarColor: "#ec4899",
-  },
-];
-
-const STORAGE_KEY = "leaveease_current_user";
+const USER_STORAGE_KEY = "leaveease_current_user";
+const TOKEN_STORAGE_KEY = "leaveease_auth_token";
 
 export const getStoredUser = () => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(USER_STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 };
 
-export const storeUser = (user) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+export const getToken = () => {
+  try {
+    return localStorage.getItem(TOKEN_STORAGE_KEY) || null;
+  } catch {
+    return null;
+  }
+};
+
+export const storeUser = (user, token = null) => {
+  if (user) {
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  }
+  if (token) {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  }
+};
+
+export const updateStoredUser = (updates) => {
+  const current = getStoredUser();
+  if (current) {
+    const updated = { ...current, ...updates };
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updated));
+    return updated;
+  }
+  return null;
 };
 
 export const clearStoredUser = () => {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(USER_STORAGE_KEY);
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
 };
 
 export const isTeamAdmin = (user) => user?.role === "team_admin" || user?.role === "admin";

@@ -221,9 +221,11 @@ export const SubstituteRequestsPage = () => {
                     <span className="detail-icon" style={{ display: "inline-flex", alignItems: "center" }}>
                       <ClipboardList size={16} className="text-blue" />
                     </span>
-                    <div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <strong className="detail-title">Work Handover & Assigned Tasks:</strong>
-                      <p className="detail-text work-text">{req.assigned_work}</p>
+                      <div className="detail-textbox" style={{ marginTop: "0.35rem" }}>
+                        {req.assigned_work}
+                      </div>
                     </div>
                   </div>
                   {req.substitute_remarks && (

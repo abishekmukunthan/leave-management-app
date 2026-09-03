@@ -1,4 +1,5 @@
 import { leaveDao } from "../dao/leaveDao.js";
+import { checkLeaveQuota } from "../utils/quotaHelper.js";
 
 const VALID_LEAVE_TYPES = [
   "Annual Leave",
@@ -35,6 +36,7 @@ export const leaveController = {
         reason,
         substitute_employee_id,
         assigned_work,
+        confirm_paycut,
       } = req.body;
 
       // 1. Basic validation
@@ -84,7 +86,72 @@ export const leaveController = {
         }
       }
 
-      // 3. Substitute validation
+      // 3. Overlapping leave validation
+      const checkStart = leave_type === "Time Permission" ? permission_date : start_date;
+      const checkEnd = leave_type === "Time Permission" ? permission_date : end_date;
+
+      const existingRequest = await leaveDao.findOverlappingLeave(
+        employee_id,
+        checkStart,
+        checkEnd
+      );
+
+      if (existingRequest) {
+        const formatReqDate = (val) => {
+          if (!val) return null;
+          if (val instanceof Date) return val.toISOString().split("T")[0];
+          return String(val).split("T")[0];
+        };
+
+        const existStart = formatReqDate(existingRequest.start_date) || existingRequest.permission_date;
+        const existEnd = formatReqDate(existingRequest.end_date) || existingRequest.permission_date;
+
+        return res.status(400).json({
+          message: "You already have an active leave request for this date.",
+          existingRequest: {
+            leave_type: existingRequest.leave_type,
+            start_date: existStart,
+            end_date: existEnd,
+            status: existingRequest.status,
+          },
+        });
+      }
+
+      // 4. Perform Quota Check
+      const quotaCheck = await checkLeaveQuota(null, {
+        employee_id,
+        leave_type,
+        start_date,
+        end_date,
+        permission_hours: normalizedPermissionHours || permission_hours,
+      });
+
+      // Requirement 3: If quota is exceeded and confirm_paycut !== true, return confirmation requirement
+      if (quotaCheck.is_paycut_leave && confirm_paycut !== true) {
+        return res.status(200).json({
+          requiresConfirmation: true,
+          message: "Leave quota exceeded",
+          warning: quotaCheck.quota_warning_message,
+          quotaDetails: quotaCheck.quotaDetails,
+        });
+      }
+
+      // 4. Substitute validation & Leave creation
+      const leavePayload = {
+        employee_id,
+        leave_type,
+        leave_type_id: quotaCheck.leave_type_id,
+        start_date: leave_type === "Time Permission" ? null : start_date,
+        end_date: leave_type === "Time Permission" ? null : end_date,
+        permission_date: leave_type === "Time Permission" ? permission_date : null,
+        permission_hours: normalizedPermissionHours,
+        reason: reason.trim(),
+        requested_units: quotaCheck.requested_units,
+        is_paycut_leave: quotaCheck.is_paycut_leave,
+        paycut_units: quotaCheck.paycut_units,
+        quota_warning_message: quotaCheck.quota_warning_message,
+      };
+
       if (substitute_employee_id) {
         if (employee_id === substitute_employee_id) {
           return res.status(400).json({
@@ -98,13 +165,7 @@ export const leaveController = {
         }
 
         const newLeave = await leaveDao.createLeaveWithSubstitute({
-          employee_id,
-          leave_type,
-          start_date: leave_type === "Time Permission" ? null : start_date,
-          end_date: leave_type === "Time Permission" ? null : end_date,
-          permission_date: leave_type === "Time Permission" ? permission_date : null,
-          permission_hours: normalizedPermissionHours,
-          reason: reason.trim(),
+          ...leavePayload,
           substitute_employee_id,
           assigned_work: assigned_work.trim(),
         });
@@ -115,15 +176,7 @@ export const leaveController = {
         });
       } else {
         // No substitute provided -> directly moves to Waiting for Admin Approval
-        const newLeave = await leaveDao.createLeaveDirect({
-          employee_id,
-          leave_type,
-          start_date: leave_type === "Time Permission" ? null : start_date,
-          end_date: leave_type === "Time Permission" ? null : end_date,
-          permission_date: leave_type === "Time Permission" ? permission_date : null,
-          permission_hours: normalizedPermissionHours,
-          reason: reason.trim(),
-        });
+        const newLeave = await leaveDao.createLeaveDirect(leavePayload);
 
         return res.status(201).json({
           message: "Leave application submitted successfully, waiting for admin approval",

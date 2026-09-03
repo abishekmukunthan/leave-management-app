@@ -15,6 +15,7 @@ import {
   Calendar,
   Building2,
   FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { StatusBadge } from "../components/StatusBadge";
@@ -529,6 +530,24 @@ export const AdminDashboard = () => {
                             </td>
                             <td>
                               <span className="font-semibold">{leave.leave_type}</span>
+                              {leave.is_paycut_leave && (
+                                <span
+                                  style={{
+                                    display: "block",
+                                    marginTop: "0.2rem",
+                                    fontSize: "0.7rem",
+                                    fontWeight: 700,
+                                    padding: "0.15rem 0.5rem",
+                                    borderRadius: "9999px",
+                                    background: "#fef2f2",
+                                    color: "#ef4444",
+                                    border: "1px solid #fecaca",
+                                    width: "fit-content",
+                                  }}
+                                >
+                                  ⚠️ Exceeds Quota (Paycut)
+                                </span>
+                              )}
                             </td>
                             <td>
                               <span className="pill-duration">{getDurationText(leave)}</span>
@@ -921,6 +940,30 @@ export const AdminDashboard = () => {
                 <span className="detail-label">Status</span>
                 <StatusBadge status={selectedLeave.status} />
               </div>
+
+              {selectedLeave.is_paycut_leave && (
+                <div
+                  style={{
+                    padding: "0.85rem 1.1rem",
+                    borderRadius: "10px",
+                    background: "#fef2f2",
+                    border: "1.5px solid #fecaca",
+                    marginBottom: "1.25rem",
+                    color: "#991b1b",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, fontSize: "0.9375rem" }}>
+                    <AlertTriangle size={18} color="#ef4444" />
+                    <span>Paycut / No-pay Leave Application</span>
+                  </div>
+                  <p style={{ margin: "0.35rem 0 0 0", fontSize: "0.8125rem", color: "#7f1d1d", lineHeight: 1.4 }}>
+                    {selectedLeave.quota_warning_message || "This leave application exceeds the employee's available quota."}
+                  </p>
+                  <div style={{ marginTop: "0.5rem", fontSize: "0.8125rem", fontWeight: 600 }}>
+                    Paycut Exceeded Units: <span style={{ color: "#ef4444", fontWeight: 700 }}>{selectedLeave.paycut_units}</span> (Requested: {selectedLeave.requested_units})
+                  </div>
+                </div>
+              )}
 
               <div className="modal-grid-2">
                 <div className="modal-detail-item">

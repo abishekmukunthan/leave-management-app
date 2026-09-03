@@ -19,7 +19,6 @@ export const adminDao = {
         if (user.role === "team_admin") {
           teamIdFilter = user.managed_team_id || user.team_id;
         }
-        // If superior_admin or admin, teamIdFilter stays null to return all requests
       }
     }
 
@@ -35,6 +34,11 @@ export const adminDao = {
         ep.designation AS employee_designation,
         ep.department AS employee_department,
         lr.leave_type,
+        lr.leave_type_id,
+        lr.requested_units,
+        lr.is_paycut_leave,
+        lr.paycut_units,
+        lr.quota_warning_message,
         lr.start_date,
         lr.end_date,
         lr.permission_date,
@@ -113,20 +117,97 @@ export const adminDao = {
     return result.rows[0] || null;
   },
 
-  // Admin approves leave request
+  // Admin approves leave request and deducts leave quota
   async approveLeaveRequest(id, approved_by) {
-    const query = `
-      UPDATE leave_requests
-      SET 
-        status = 'Approved',
-        approved_by = $2,
-        approved_at = CURRENT_TIMESTAMP,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-      RETURNING *;
-    `;
-    const result = await pool.query(query, [id, approved_by || null]);
-    return result.rows[0] || null;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // 1. Get leave request details
+      const leaveRes = await client.query("SELECT * FROM leave_requests WHERE id = $1 FOR UPDATE", [id]);
+      if (leaveRes.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      const leave = leaveRes.rows[0];
+
+      // 2. Update status to Approved
+      const updateQuery = `
+        UPDATE leave_requests
+        SET 
+          status = 'Approved',
+          approved_by = $2,
+          approved_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *;
+      `;
+      const updatedRes = await client.query(updateQuery, [id, approved_by || null]);
+      const approvedLeave = updatedRes.rows[0];
+
+      // 3. Deduct Quota from employee_leave_entitlements
+      const employeeId = leave.employee_id;
+      const reqUnits = parseFloat(leave.requested_units) || 0;
+      const paycutUnits = parseFloat(leave.paycut_units) || 0;
+      // Amount to deduct from quota (only up to available remaining balance)
+      const deductFromQuota = Math.max(0, reqUnits - paycutUnits);
+
+      let leaveTypeId = leave.leave_type_id;
+      if (!leaveTypeId && leave.leave_type) {
+        const ltRes = await client.query(
+          "SELECT id FROM leave_types WHERE LOWER(name) = LOWER($1) OR LOWER(code) = LOWER($1) LIMIT 1",
+          [leave.leave_type.trim()]
+        );
+        if (ltRes.rows.length > 0) leaveTypeId = ltRes.rows[0].id;
+      }
+
+      if (employeeId && leaveTypeId && deductFromQuota > 0) {
+        const currentYear = new Date().getFullYear();
+        const entRes = await client.query(
+          "SELECT id, allocated, used, remaining FROM employee_leave_entitlements WHERE employee_id = $1 AND leave_type_id = $2 AND year = $3",
+          [employeeId, leaveTypeId, currentYear]
+        );
+
+        if (entRes.rows.length > 0) {
+          const currentEnt = entRes.rows[0];
+          const newUsed = (parseFloat(currentEnt.used) || 0) + deductFromQuota;
+          const newRemaining = Math.max(0, (parseFloat(currentEnt.allocated) || 0) - newUsed);
+
+          await client.query(
+            "UPDATE employee_leave_entitlements SET used = $1, remaining = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3",
+            [newUsed, newRemaining, currentEnt.id]
+          );
+        }
+      }
+
+      // 4. Update legacy leave_balances table for backward compatibility
+      if (employeeId && deductFromQuota > 0) {
+        const leaveTypeStr = (leave.leave_type || "").toLowerCase();
+        let columnToUpdate = "casual_leave_balance";
+        if (leaveTypeStr.includes("annual")) columnToUpdate = "annual_leave_balance";
+        else if (leaveTypeStr.includes("sick")) columnToUpdate = "sick_leave_balance";
+        else if (leaveTypeStr.includes("time") || leaveTypeStr.includes("permission")) columnToUpdate = "time_permission_balance";
+
+        await client.query(
+          `UPDATE leave_balances 
+           SET 
+             ${columnToUpdate} = GREATEST(0, ${columnToUpdate} - $1),
+             used_leave_count = used_leave_count + $1,
+             remaining_leave_count = GREATEST(0, remaining_leave_count - $1),
+             updated_at = CURRENT_TIMESTAMP
+           WHERE employee_id = $2`,
+          [deductFromQuota, employeeId]
+        );
+      }
+
+      await client.query("COMMIT");
+      return approvedLeave;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   // Admin rejects leave request

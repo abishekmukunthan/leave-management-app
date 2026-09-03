@@ -1,10 +1,12 @@
 import express from "express";
 import cors from "cors";
 import pool from "./config/db.js";
+import authRoutes from "./routes/authRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
 import substituteRoutes from "./routes/substituteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import superiorRoutes from "./routes/superiorRoutes.js";
+import calendarRoutes from "./routes/calendarRoutes.js";
 
 const app = express();
 
@@ -36,10 +38,12 @@ app.get("/db-test", async (req, res) => {
 });
 
 // Mount API routes
+app.use("/api/auth", authRoutes);
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/substitute-requests", substituteRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/superior", superiorRoutes);
+app.use("/api/calendar", calendarRoutes);
 
 // 404 Handler
 app.use((req, res) => {

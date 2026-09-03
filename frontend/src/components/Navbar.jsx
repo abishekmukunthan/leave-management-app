@@ -7,6 +7,8 @@ import {
   ShieldCheck,
   BarChart3,
   User,
+  Users,
+  Sliders,
   LogOut,
   CalendarCheck,
 } from "lucide-react";
@@ -19,7 +21,8 @@ export const Navbar = () => {
 
   // Prefer loggedInUser from localStorage, fall back to context mock user
   const displayName = loggedInUser ? loggedInUser.name : currentUser.fullName;
-  const displayRole = loggedInUser ? loggedInUser.designation : currentUser.designation;
+  const displayRole = loggedInUser ? (loggedInUser.designation || loggedInUser.role) : currentUser.designation;
+  const displayTeam = loggedInUser ? (loggedInUser.team_name || loggedInUser.department || "") : "";
   const initials = displayName.split(" ").map((n) => n[0]).join("");
 
   const userIsSuperiorAdmin = loggedInUser ? isSuperiorAdmin(loggedInUser) : false;
@@ -49,17 +52,38 @@ export const Navbar = () => {
       </div>
 
       <nav className="sidebar-nav">
-        {/* Superior Admin Dashboard Link */}
+        {/* Superior Admin Dashboard, User Management & Configuration Links */}
         {userIsSuperiorAdmin && (
-          <NavLink
-            to="/superior"
-            className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
-          >
-            <span className="nav-icon">
-              <BarChart3 size={18} strokeWidth={2} />
-            </span>
-            <span className="nav-label">Superior Dashboard</span>
-          </NavLink>
+          <>
+            <NavLink
+              to="/superior"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+              end
+            >
+              <span className="nav-icon">
+                <BarChart3 size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">Superior Dashboard</span>
+            </NavLink>
+            <NavLink
+              to="/superior/users"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <Users size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">User Management</span>
+            </NavLink>
+            <NavLink
+              to="/superior/configuration"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <Sliders size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">Configuration</span>
+            </NavLink>
+          </>
         )}
 
         {/* Team Admin Dashboard Link */}
@@ -120,6 +144,16 @@ export const Navbar = () => {
               </span>
               <span className="nav-label">Substitute Requests</span>
             </NavLink>
+
+            <NavLink
+              to="/calendar"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <CalendarDays size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">Calendar</span>
+            </NavLink>
           </>
         )}
 
@@ -144,7 +178,7 @@ export const Navbar = () => {
           </div>
           <div className="user-details">
             <span className="user-name">{displayName}</span>
-            <span className="user-role">{displayRole}</span>
+            <span className="user-role">{displayRole}{displayTeam ? ` • ${displayTeam}` : ""}</span>
           </div>
         </div>
         <button

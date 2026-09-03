@@ -182,7 +182,26 @@ export const MyLeavesPage = () => {
                     return (
                       <tr key={leave.id}>
                         <td><span className="cell-id" title={leave.id}>{shortId}</span></td>
-                        <td><strong>{leave.leave_type}</strong></td>
+                        <td>
+                          <strong>{leave.leave_type}</strong>
+                          {leave.is_paycut_leave && (
+                            <span
+                              style={{
+                                display: "inline-block",
+                                marginTop: "0.2rem",
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                padding: "0.15rem 0.5rem",
+                                borderRadius: "9999px",
+                                background: "#fef2f2",
+                                color: "#ef4444",
+                                border: "1px solid #fecaca",
+                              }}
+                            >
+                              Paycut / No-pay Leave
+                            </span>
+                          )}
+                        </td>
                         <td>
                           {leave.leave_type === "Time Permission" ? (
                             <div>
@@ -209,6 +228,11 @@ export const MyLeavesPage = () => {
                               <span className="text-muted" style={{ display: "block", fontSize: "0.75rem" }}>
                                 ({leave.substitute_status})
                               </span>
+                            )}
+                            {leave.assigned_work && (
+                              <div className="table-truncate-text" title={leave.assigned_work} style={{ marginTop: "0.2rem" }}>
+                                Handover: {leave.assigned_work}
+                              </div>
                             )}
                           </div>
                         </td>
@@ -249,6 +273,24 @@ export const MyLeavesPage = () => {
                 <span className="detail-label">Status</span>
                 <StatusBadge status={selectedLeave.status} />
               </div>
+
+              {selectedLeave.is_paycut_leave && (
+                <div
+                  style={{
+                    padding: "0.75rem 1rem",
+                    borderRadius: "8px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    marginBottom: "1rem",
+                    fontSize: "0.8125rem",
+                    color: "#991b1b",
+                  }}
+                >
+                  <strong>⚠️ Paycut / No-pay Leave Alert:</strong>{" "}
+                  {selectedLeave.quota_warning_message || "This leave exceeds your available quota and may be considered as no-pay leave."}{" "}
+                  (Paycut units: <strong>{selectedLeave.paycut_units}</strong>)
+                </div>
+              )}
 
               <div className="modal-grid-2">
                 <div className="modal-detail-item">
