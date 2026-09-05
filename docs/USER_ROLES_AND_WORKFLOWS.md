@@ -92,7 +92,7 @@ sequenceDiagram
 ### 3.4 Superior Admin Workflow
 1. **Executive Oversight**:
    - Navigate to `/superior` dashboard.
-   - View 4 real-time availability cards (*Total Away Right Now*, *On Leave Today*, *Time Permission Today*, *Leave Calendar* shortcut).
+   - View 3 primary real-time availability cards (Total Away Right Now, On Leave Today, Time Permission Today) and a separate Leave Calendar shortcut card.
    - Audit overall request summary metrics and company-wide rejected leaves.
 2. **Provision Users**:
    - Navigate to `/superior/users`.

@@ -67,11 +67,12 @@ Leave Management Application provides an end-to-end digital workflow that enforc
 - Date cell click opens a centered popup modal showing selected date attendance summary, department breakdown table, people on leave, and time permissions with scrollable handover details.
 
 ### 3.8 Superior Admin Executive Dashboard
-- Real-time snapshot grid featuring 4 top metrics:
-  1. **Total Away Right Now** (Featured Indigo Card)
-  2. **On Leave Today** (Emerald Card)
-  3. **Time Permission Today** (Cyan Card)
-  4. **Leave Calendar** (Shortcut card to `/calendar`)
+- **3 Primary Real-Time Availability Cards**:
+  1. **Total Away Right Now** (Featured Indigo Card — Combined leaves & active time permissions)
+  2. **On Leave Today** (Emerald Card — Approved full & half-day leaves)
+  3. **Time Permission Today** (Cyan Card — Active short duration permissions)
+- **Separate Calendar Shortcut Card**:
+  - A compact, clickable rectangular card featuring Title (*Leave Calendar*), Subtitle (*View monthly company-wide leave availability*), and action hint (*Open Calendar →*). It acts as an interactive dashboard shortcut navigating directly to `/calendar`.
 - Request Summary analytics grid (*Total, Approved, Rejected, Pending Lead, Pending Substitute*).
 - Rejected Leaves audit table.
 
@@ -99,7 +100,48 @@ Leave Management Application provides an end-to-end digital workflow that enforc
 ---
 
 ## 6. Future Enhancements
+
 1. Email and push notifications for substitute assignments and approval decisions.
 2. Export leave reports and department schedules to CSV/PDF formats.
 3. Multi-level hierarchical approval workflows for multi-week extended leaves.
 4. Native mobile applications (iOS / Android) using React Native.
+
+---
+
+## 7. Known Limitations & Production Improvements
+
+While fully functional for internal review and MVP deployment, the following limitations are identified for future enterprise hardening:
+1. **Email & SMS Notifications**: Automated email triggers for substitute requests and manager approval decisions are not implemented yet.
+2. **Export Functionality**: Exporting calendar schedules or department leave histories to CSV/PDF is not implemented yet.
+3. **API Identity Verification**: Certain MVP testing endpoints pass `user_id` or `employee_id` via query parameters; the production deployment should derive user identity strictly from the verified JWT payload (`req.user.id`).
+4. **Advanced Policy Rules**: Public holiday calendars, carry-forward leave roll-overs, and tenure-based accrual rules are planned for future releases.
+
+---
+
+## 8. Application Screenshots & Visual Tour
+
+*(Placeholder section for visual UI captures in documentation)*
+
+### 8.1 Login Page
+*(Centered authentication card with demo user quick-fill options)*
+
+### 8.2 Employee Dashboard
+*(Personal leave overview, remaining entitlement cards, quick-apply actions)*
+
+### 8.3 Apply Leave Page
+*(Form fields for leave type, date range, substitute selector, assigned work box, and real-time paycut warning alert)*
+
+### 8.4 Team Admin Dashboard
+*(Department request table, substitute handover status, single-click approve/reject actions)*
+
+### 8.5 Superior Admin Dashboard
+*(Top 3 real-time availability cards, Leave Calendar shortcut card, request summary grid, and rejected leaves table)*
+
+### 8.6 Calendar Modal
+*(Centered popup modal triggered on date click with summary badges, team breakdown, and scrollable handover notes)*
+
+### 8.7 User Management
+*(Employee provisioning table, temporary password modal, password reset, and soft deactivation buttons)*
+
+### 8.8 Configuration Page
+*(Tabbed interface for Teams, Leave Types, and Employee Entitlements/Quotas)*

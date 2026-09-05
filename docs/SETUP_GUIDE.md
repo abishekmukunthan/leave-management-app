@@ -24,10 +24,10 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=leave_management_db
 DB_USER=postgres
-DB_PASSWORD=postgres
+DB_PASSWORD=your_database_password
 
 # Security Settings
-JWT_SECRET=leave_management_jwt_secret_2026
+JWT_SECRET=your_secure_jwt_secret
 ```
 
 ### 2.2 Frontend Environment Configuration
