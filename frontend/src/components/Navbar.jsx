@@ -11,9 +11,10 @@ import {
   Sliders,
   LogOut,
   CalendarCheck,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
-import { clearStoredUser, isTeamAdmin, isSuperiorAdmin } from "../services/auth";
+import { clearStoredUser, isTeamAdmin, isSuperiorAdmin, canApproveLeaves } from "../services/auth";
 
 export const Navbar = () => {
   const { loggedInUser, currentUser } = useLeave();
@@ -27,6 +28,7 @@ export const Navbar = () => {
 
   const userIsSuperiorAdmin = loggedInUser ? isSuperiorAdmin(loggedInUser) : false;
   const userIsTeamAdmin = loggedInUser ? isTeamAdmin(loggedInUser) : false;
+  const userCanApprove = loggedInUser ? canApproveLeaves(loggedInUser) : false;
   const isNormalEmployee = !userIsSuperiorAdmin && !userIsTeamAdmin;
 
   const handleSignOut = () => {
@@ -83,11 +85,20 @@ export const Navbar = () => {
               </span>
               <span className="nav-label">Configuration</span>
             </NavLink>
+            <NavLink
+              to="/superior/reports"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <FileSpreadsheet size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">Reports</span>
+            </NavLink>
           </>
         )}
 
-        {/* Team Admin Dashboard Link */}
-        {userIsTeamAdmin && (
+        {/* Team Approvals Dashboard Link */}
+        {!userIsSuperiorAdmin && (userIsTeamAdmin || userCanApprove) && (
           <NavLink
             to="/admin"
             className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
@@ -95,7 +106,7 @@ export const Navbar = () => {
             <span className="nav-icon">
               <ShieldCheck size={18} strokeWidth={2} />
             </span>
-            <span className="nav-label">Team Admin Dashboard</span>
+            <span className="nav-label">Team Approvals</span>
           </NavLink>
         )}
 

@@ -10,10 +10,11 @@ import { AdminDashboard } from "./pages/AdminDashboard";
 import { SuperiorDashboard } from "./pages/SuperiorDashboard";
 import { UserManagementPage } from "./pages/UserManagementPage";
 import { ConfigurationPage } from "./pages/ConfigurationPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { EmployeeProfilePage } from "./pages/EmployeeProfilePage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
-import { getStoredUser, isTeamAdmin, isSuperiorAdmin } from "./services/auth";
+import { getStoredUser, isTeamAdmin, isSuperiorAdmin, canApproveLeaves } from "./services/auth";
 import "./App.css";
 
 // Redirects to /login if no user is stored in localStorage, or to /change-password if forced password change is active
@@ -31,13 +32,13 @@ const RequireChangePasswordAuth = ({ children }) => {
   return children;
 };
 
-// Route guard for Team Admin Dashboard (allows team_admin and legacy admin)
+// Route guard for Team Approvals (allows team_admin and any user authorized to approve leaves)
 const RequireTeamAdmin = ({ children }) => {
   const user = getStoredUser();
   if (!user) return <Navigate to="/login" replace />;
   if (user.must_change_password) return <Navigate to="/change-password" replace />;
   if (isSuperiorAdmin(user)) return <Navigate to="/superior" replace />;
-  if (!isTeamAdmin(user)) return <Navigate to="/" replace />;
+  if (!canApproveLeaves(user)) return <Navigate to="/" replace />;
   return children;
 };
 
@@ -157,6 +158,14 @@ function App() {
               element={
                 <RequireSuperiorAdmin>
                   <ConfigurationPage />
+                </RequireSuperiorAdmin>
+              }
+            />
+            <Route
+              path="superior/reports"
+              element={
+                <RequireSuperiorAdmin>
+                  <ReportsPage />
                 </RequireSuperiorAdmin>
               }
             />

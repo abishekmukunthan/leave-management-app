@@ -4,14 +4,8 @@ import {
   ChevronRight,
   Clock,
   Palmtree,
-  Users,
-  UserCheck,
-  CheckCircle2,
-  Building2,
   RefreshCw,
-  Sparkles,
   X,
-  Check,
   AlertCircle,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
@@ -34,18 +28,6 @@ const MONTH_NAMES = [
 ];
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-// Department dot color helper
-const getTeamColor = (teamName) => {
-  if (!teamName) return "#64748B";
-  const name = teamName.toLowerCase();
-  if (name.includes("eng")) return "#4F46E5";
-  if (name.includes("sale")) return "#F59E0B";
-  if (name.includes("mark")) return "#EC4899";
-  if (name.includes("hr") || name.includes("human")) return "#06B6D4";
-  if (name.includes("prod") || name.includes("design")) return "#10B981";
-  return "#6366F1";
-};
 
 // Helper to format date string to human-readable full date e.g. "Thursday, September 3, 2026"
 const formatDisplayDate = (val) => {
@@ -387,268 +369,84 @@ export const CalendarPage = () => {
                 <div style={{ padding: "3rem", textAlign: "center", color: "#64748B" }}>
                   Fetching availability details for {selectedDate}...
                 </div>
-              ) : dayDetails ? (
+              ) : (
                 <>
-                  {/* Summary Cards */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                      gap: "0.85rem",
-                      marginBottom: "1.25rem",
-                    }}
-                  >
-                    <div className="overview-card" style={{ padding: "0.85rem" }}>
-                      <div className="overview-card-header" style={{ marginBottom: "0.25rem" }}>
-                        <div className="overview-icon icon-blue">
-                          <Users size={15} />
-                        </div>
-                        <span className="overview-count text-blue" style={{ fontSize: "1.3rem" }}>
-                          {dayDetails.summary.totalEmployees}
-                        </span>
-                      </div>
-                      <div className="overview-card-body">
-                        <h4 className="overview-title" style={{ fontSize: "0.75rem" }}>Total Employees</h4>
-                      </div>
-                    </div>
-
-                    <div className="overview-card" style={{ padding: "0.85rem", border: "1.5px solid #a7f3d0" }}>
-                      <div className="overview-card-header" style={{ marginBottom: "0.25rem" }}>
-                        <div className="overview-icon icon-green">
-                          <CheckCircle2 size={15} />
-                        </div>
-                        <span className="overview-count text-green" style={{ fontSize: "1.3rem" }}>
-                          {dayDetails.summary.availableEmployees}
-                        </span>
-                      </div>
-                      <div className="overview-card-body">
-                        <h4 className="overview-title" style={{ fontSize: "0.75rem" }}>Available Employees</h4>
-                      </div>
-                    </div>
-
-                    <div className="overview-card" style={{ padding: "0.85rem" }}>
-                      <div className="overview-card-header" style={{ marginBottom: "0.25rem" }}>
-                        <div className="overview-icon icon-teal">
-                          <Palmtree size={15} />
-                        </div>
-                        <span className="overview-count" style={{ fontSize: "1.3rem", color: "#0d9488" }}>
-                          {dayDetails.summary.onLeaveCount}
-                        </span>
-                      </div>
-                      <div className="overview-card-body">
-                        <h4 className="overview-title" style={{ fontSize: "0.75rem" }}>On Leave</h4>
-                      </div>
-                    </div>
-
-                    <div className="overview-card" style={{ padding: "0.85rem" }}>
-                      <div className="overview-card-header" style={{ marginBottom: "0.25rem" }}>
-                        <div className="overview-icon icon-cyan">
-                          <Clock size={15} />
-                        </div>
-                        <span className="overview-count text-teal" style={{ fontSize: "1.3rem" }}>
-                          {dayDetails.summary.timePermissionCount}
-                        </span>
-                      </div>
-                      <div className="overview-card-body">
-                        <h4 className="overview-title" style={{ fontSize: "0.75rem" }}>Time Permission</h4>
-                      </div>
-                    </div>
-
-                    <div
-                      className="overview-card"
-                      style={{
-                        padding: "0.85rem",
-                        background: dayDetails.summary.totalAwayCount > 0 ? "#EEF2FF" : "#FFFFFF",
-                        border: dayDetails.summary.totalAwayCount > 0 ? "1.5px solid #C7D2FE" : "1px solid #E2E8F0",
-                      }}
-                    >
-                      <div className="overview-card-header" style={{ marginBottom: "0.25rem" }}>
-                        <div className="overview-icon" style={{ background: "#4F46E5", color: "#FFFFFF" }}>
-                          <UserCheck size={15} />
-                        </div>
-                        <span className="overview-count" style={{ fontSize: "1.3rem", color: "#4F46E5" }}>
-                          {dayDetails.summary.totalAwayCount}
-                        </span>
-                      </div>
-                      <div className="overview-card-body">
-                        <h4 className="overview-title" style={{ fontSize: "0.75rem" }}>Total Away</h4>
-                      </div>
-                    </div>
+                  {/* 1. Total Leave on this day box */}
+                  <div className="calendar-total-leave-box" data-testid="total-leave-box">
+                    <span className="total-leave-label">Total Leave on this day</span>
+                    <span className="total-leave-count" data-testid="total-leave-count">
+                      {dayDetails?.totalLeaveCount ?? 0}
+                    </span>
                   </div>
 
-                  {/* Team / Department Breakdown Table */}
-                  <div className="table-card" style={{ marginBottom: "1.25rem" }}>
-                    <div className="table-header-box" style={{ padding: "0.75rem 1rem", borderBottom: "1px solid #E2E8F0" }}>
-                      <h4 style={{ fontSize: "0.875rem", fontWeight: 700, color: "#0F172A", margin: 0, display: "flex", alignItems: "center", gap: "0.45rem" }}>
-                        <Building2 size={15} className="text-blue" />
-                        <span>Department Availability Breakdown</span>
-                      </h4>
+                  {/* 2. Scrollable table showing leave/time permission records */}
+                  {(!dayDetails?.records || dayDetails.records.length === 0) ? (
+                    <div className="calendar-records-empty">
+                      No leave or time permission records found for this date.
                     </div>
-
-                    {dayDetails.teamBreakdown.length === 0 ? (
-                      <div className="empty-state-compact">
-                        <p>No department data available.</p>
-                      </div>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="custom-table" style={{ fontSize: "0.8125rem" }}>
-                          <thead>
-                            <tr>
-                              <th>Department / Team</th>
-                              <th style={{ textAlign: "center" }}>Total Members</th>
-                              <th style={{ textAlign: "center" }}>Available</th>
-                              <th style={{ textAlign: "center" }}>On Leave</th>
-                              <th style={{ textAlign: "center" }}>Time Perm.</th>
-                              <th style={{ textAlign: "center" }}>Total Away</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dayDetails.teamBreakdown.map((t, idx) => (
-                              <tr key={`team-mod-${idx}`}>
+                  ) : (
+                    <div className="calendar-table-scroll-wrapper">
+                      <table className="calendar-records-table">
+                        <thead>
+                          <tr>
+                            <th>Employee Name</th>
+                            <th>Department Name</th>
+                            <th>Leave / Time Permission</th>
+                            <th>Substitute</th>
+                            <th>Leave Type</th>
+                            <th>Assigned Work</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dayDetails.records.map((record, idx) => {
+                            const isLeave = record.record_type === "Leave";
+                            return (
+                              <tr key={record.id ? `${record.id}-${idx}` : idx}>
                                 <td>
-                                  <div className="team-name-cell">
-                                    <span className="team-dot" style={{ backgroundColor: getTeamColor(t.teamName) }}></span>
-                                    <strong style={{ color: "#0F172A" }}>{t.teamName}</strong>
-                                  </div>
+                                  <strong>{record.employee_name}</strong>
                                 </td>
-                                <td style={{ textAlign: "center" }}>{t.totalMembers}</td>
-                                <td style={{ textAlign: "center" }}>
-                                  <span className="count-badge count-badge-green font-bold">{t.availableCount}</span>
-                                </td>
-                                <td style={{ textAlign: "center" }}>
-                                  <span className={t.onLeaveCount > 0 ? "count-badge count-badge-amber" : "count-badge count-badge-zero"}>
-                                    {t.onLeaveCount}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: "center" }}>
-                                  <span className={t.timePermissionCount > 0 ? "count-badge count-badge-teal" : "count-badge count-badge-zero"}>
-                                    {t.timePermissionCount}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: "center" }}>
-                                  <span className={t.totalAwayCount > 0 ? "count-badge count-badge-amber font-bold" : "count-badge count-badge-zero"}>
-                                    {t.totalAwayCount}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* People on Leave Table */}
-                  <div className="table-card" style={{ marginBottom: "1.25rem" }}>
-                    <div className="table-header-box" style={{ padding: "0.75rem 1rem", borderBottom: "1px solid #E2E8F0" }}>
-                      <h4 style={{ fontSize: "0.875rem", fontWeight: 700, color: "#0F172A", margin: 0, display: "flex", alignItems: "center", gap: "0.45rem" }}>
-                        <Palmtree size={15} className="text-teal" />
-                        <span>People on Leave ({dayDetails.peopleOnLeave.length})</span>
-                      </h4>
-                    </div>
-
-                    {dayDetails.peopleOnLeave.length === 0 ? (
-                      <div className="empty-state-compact">
-                        <Sparkles size={20} style={{ color: "#10B981" }} />
-                        <p>No approved leave for this date.</p>
-                      </div>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="custom-table" style={{ fontSize: "0.8125rem" }}>
-                          <thead>
-                            <tr>
-                              <th>Employee Name</th>
-                              <th>Department / Team</th>
-                              <th>Leave Type</th>
-                              <th>Duration / Number of Days</th>
-                              <th>Substitute</th>
-                              <th>Assigned Work</th>
-                              <th>Approved By</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dayDetails.peopleOnLeave.map((item, idx) => (
-                              <tr key={`leave-mod-${idx}`}>
-                                <td><strong>{item.employee_name}</strong></td>
                                 <td>
-                                  <span className="badge-default" style={{ fontSize: "0.75rem" }}>{item.team_name}</span>
+                                  <span>{record.department_name || "Unassigned"}</span>
                                 </td>
-                                <td><span className="font-semibold">{item.leave_type}</span></td>
-                                <td><span className="pill-duration">{item.duration}</span></td>
-                                <td><span className="substitute-cell">{item.substitute_name || "— None —"}</span></td>
                                 <td>
-                                  <div className="table-truncate-text" title={item.assigned_work || "No work assigned"}>
-                                    {item.assigned_work || "—"}
+                                  <div>
+                                    <span className={isLeave ? "record-pill-leave" : "record-pill-time"}>
+                                      {isLeave ? "Leave" : "Time Permission"}
+                                    </span>
+                                    {isLeave && record.start_date && record.end_date && (
+                                      <div className="record-detail-subtext">
+                                        {record.start_date === record.end_date
+                                          ? record.start_date
+                                          : `${record.start_date} to ${record.end_date}`}
+                                      </div>
+                                    )}
+                                    {!isLeave && record.permission_hours && (
+                                      <div className="record-detail-subtext">
+                                        {record.permission_hours} {record.permission_hours === 1 ? "hour" : "hours"}
+                                      </div>
+                                    )}
                                   </div>
                                 </td>
                                 <td>
-                                  <span className="text-green font-medium" style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem" }}>
-                                    <Check size={12} /> {item.approved_by || "Team Lead"}
+                                  <span>{record.substitute_name || "Not assigned"}</span>
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: 600 }}>{record.leave_type}</span>
+                                </td>
+                                <td>
+                                  <span title={record.assigned_work || "No assigned work"}>
+                                    {record.assigned_work || "No assigned work"}
                                   </span>
                                 </td>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Time Permissions Table */}
-                  <div className="table-card">
-                    <div className="table-header-box" style={{ padding: "0.75rem 1rem", borderBottom: "1px solid #E2E8F0" }}>
-                      <h4 style={{ fontSize: "0.875rem", fontWeight: 700, color: "#0F172A", margin: 0, display: "flex", alignItems: "center", gap: "0.45rem" }}>
-                        <Clock size={15} className="text-cyan" />
-                        <span>Time Permissions ({dayDetails.timePermissions.length})</span>
-                      </h4>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
-
-                    {dayDetails.timePermissions.length === 0 ? (
-                      <div className="empty-state-compact">
-                        <Sparkles size={20} style={{ color: "#10B981" }} />
-                        <p>No time permissions for this date.</p>
-                      </div>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="custom-table" style={{ fontSize: "0.8125rem" }}>
-                          <thead>
-                            <tr>
-                              <th>Employee Name</th>
-                              <th>Department / Team</th>
-                              <th>Permission Hours</th>
-                              <th>Substitute</th>
-                              <th>Assigned Work</th>
-                              <th>Approved By</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {dayDetails.timePermissions.map((item, idx) => (
-                              <tr key={`perm-mod-${idx}`}>
-                                <td><strong>{item.employee_name}</strong></td>
-                                <td>
-                                  <span className="badge-default" style={{ fontSize: "0.75rem" }}>{item.team_name}</span>
-                                </td>
-                                <td><span className="pill-duration">{item.permission_hours}</span></td>
-                                <td><span className="substitute-cell">{item.substitute_name || "— None —"}</span></td>
-                                <td>
-                                  <div className="table-truncate-text" title={item.assigned_work || "No work assigned"}>
-                                    {item.assigned_work || "—"}
-                                  </div>
-                                </td>
-                                <td>
-                                  <span className="text-green font-medium" style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem" }}>
-                                    <Check size={12} /> {item.approved_by || "Team Lead"}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </>
-              ) : null}
+              )}
             </div>
 
             {/* Modal Footer */}

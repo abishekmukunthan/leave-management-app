@@ -2452,3 +2452,411 @@
   font-weight: 700;
 }
 
+/* ==========================================================================
+   Searchable Substitute Employee Selector
+   ========================================================================== */
+
+.substitute-selector-container {
+  position: relative;
+  width: 100%;
+}
+
+.substitute-search-box {
+  position: relative;
+  width: 100%;
+}
+
+.substitute-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.substitute-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.substitute-search-input {
+  width: 100%;
+  padding: 0.6rem 2.25rem 0.6rem 2.4rem;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm, 6px);
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 0.875rem;
+  outline: none;
+  transition: var(--transition, all 0.2s ease);
+}
+
+.substitute-search-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.substitute-chevron-icon {
+  position: absolute;
+  right: 0.85rem;
+  color: #94a3b8;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+
+.substitute-chevron-icon.open {
+  transform: rotate(180deg);
+}
+
+.substitute-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  z-index: 50;
+  max-height: 240px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.35rem 0;
+}
+
+.substitute-dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.substitute-dropdown-menu::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.substitute-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.substitute-option-row:hover {
+  background-color: #f8fafc;
+}
+
+.substitute-option-row.active {
+  background-color: #eef2ff;
+}
+
+.substitute-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.substitute-option-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.substitute-option-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.substitute-option-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.substitute-empty-state {
+  padding: 1.25rem 1rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.875rem;
+}
+
+/* Selected employee card */
+.substitute-selected-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-sm, 6px);
+  transition: border-color 0.2s ease;
+}
+
+.substitute-selected-card:hover {
+  border-color: #94a3b8;
+}
+
+.substitute-selected-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.substitute-selected-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.substitute-selected-name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.substitute-selected-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.substitute-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.substitute-clear-btn:hover {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+/* Editable Role Select in User Management Table */
+.editable-role-select {
+  padding: 0.22rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.725rem;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  letter-spacing: 0.01em;
+}
+
+.editable-role-select.role-employee {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+.editable-role-select.role-employee:hover,
+.editable-role-select.role-employee:focus {
+  background-color: #bae6fd;
+  border-color: #7dd3fc;
+}
+
+.editable-role-select.role-team-lead {
+  background-color: #f3e8ff;
+  color: #7e22ce;
+  border-color: #e9d5ff;
+}
+
+.editable-role-select.role-team-lead:hover,
+.editable-role-select.role-team-lead:focus {
+  background-color: #e9d5ff;
+  border-color: #d8b4fe;
+}
+
+/* ==================================================
+   Calendar Date Click Modal: Total Leave Box & Table
+   ================================================== */
+.calendar-total-leave-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1.5px solid #a7f3d0;
+  border-radius: var(--radius-md, 8px);
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.08);
+}
+
+.total-leave-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #065f46;
+}
+
+.total-leave-count {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #047857;
+  background: #ffffff;
+  padding: 0.2rem 0.85rem;
+  border-radius: 9999px;
+  border: 1.5px solid #6ee7b7;
+  min-width: 44px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-table-scroll-wrapper {
+  max-height: 380px;
+  overflow-y: auto;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-md, 8px);
+  position: relative;
+  background: #FFFFFF;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.calendar-records-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.calendar-records-table thead th {
+  position: sticky;
+  top: 0;
+  background-color: #F8FAFC;
+  z-index: 2;
+  font-weight: 700;
+  color: #475569;
+  border-bottom: 2px solid #E2E8F0;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.calendar-records-table tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #F1F5F9;
+  color: #1E293B;
+  vertical-align: middle;
+}
+
+.calendar-records-table tbody tr:hover {
+  background-color: #F8FAFC;
+}
+
+.calendar-records-empty {
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  color: #64748B;
+  font-size: 0.9rem;
+  background: #F8FAFC;
+  border: 1px dashed #CBD5E1;
+  border-radius: var(--radius-md, 8px);
+}
+
+.record-pill-leave {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #C7D2FE;
+}
+
+.record-pill-time {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: #F0FDF4;
+  color: #059669;
+  border: 1px solid #A7F3D0;
+}
+
+.record-detail-subtext {
+  font-size: 0.72rem;
+  color: #64748B;
+  margin-top: 0.15rem;
+}
+
+/* ==================================================
+   User & Team Management Vertical Action Buttons
+   ================================================== */
+.user-action-buttons-vertical,
+.team-action-buttons-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+  min-width: 130px;
+  max-width: 155px;
+}
+
+.user-action-buttons-vertical .action-btn-vertical,
+.team-action-buttons-vertical .action-btn-vertical {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.28rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-xs, 4px);
+  text-align: left;
+  white-space: nowrap;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.user-action-buttons-vertical .action-btn-vertical svg,
+.team-action-buttons-vertical .action-btn-vertical svg {
+  flex-shrink: 0;
+}
+
+
+
+

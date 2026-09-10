@@ -26,7 +26,7 @@ export const Layout = () => {
       case "/substitute-requests":
         return "Substitute Duty Requests";
       case "/admin":
-        return "Team Admin Dashboard";
+        return "Team Approvals";
       case "/superior":
         return "Superior Admin Monitoring";
       case "/profile":

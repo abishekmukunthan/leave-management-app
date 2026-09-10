@@ -16,6 +16,7 @@ import {
   Building2,
   FileText,
   AlertTriangle,
+  Shield,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { StatusBadge } from "../components/StatusBadge";
@@ -35,6 +36,7 @@ export const AdminDashboard = () => {
   const { showToast, loggedInUser } = useLeave();
 
   const [leaves, setLeaves] = useState([]);
+  const [noPermMessage, setNoPermMessage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedLeave, setSelectedLeave] = useState(null);
@@ -59,7 +61,15 @@ export const AdminDashboard = () => {
     setError(null);
     try {
       const response = await getAdminLeaveRequests(currentAdminId);
-      setLeaves(response.data || []);
+      const allRows = response.data || [];
+      // Defensive client-side exclusion of current admin's own leave requests
+      const filtered = currentAdminId ? allRows.filter((l) => l.employee_id !== currentAdminId) : allRows;
+      setLeaves(filtered);
+      if (response.message && response.message.includes("No leave approval permissions")) {
+        setNoPermMessage(response.message);
+      } else {
+        setNoPermMessage(null);
+      }
     } catch (err) {
       console.error("Error loading team leaves:", err);
       setError(err.message || "Failed to load team leave requests from backend");
@@ -73,7 +83,14 @@ export const AdminDashboard = () => {
     getAdminLeaveRequests(currentAdminId)
       .then((response) => {
         if (isMounted) {
-          setLeaves(response.data || []);
+          const allRows = response.data || [];
+          const filtered = currentAdminId ? allRows.filter((l) => l.employee_id !== currentAdminId) : allRows;
+          setLeaves(filtered);
+          if (response.message && response.message.includes("No leave approval permissions")) {
+            setNoPermMessage(response.message);
+          } else {
+            setNoPermMessage(null);
+          }
           setLoading(false);
         }
       })
@@ -92,7 +109,15 @@ export const AdminDashboard = () => {
 
   const handleApprove = async (leaveId) => {
     if (!currentAdminId) {
-      showToast("Please log in as a Team Admin to approve leaves.", "warning");
+      showToast("Please log in with an authorized account to approve leaves.", "warning");
+      return;
+    }
+    const targetLeave = leaves.find((l) => l.id === leaveId) || selectedLeave;
+    if (targetLeave && targetLeave.employee_id === currentAdminId) {
+      showToast(
+        "You cannot approve your own leave request. This leave must be approved by another authorized approver or Superior Admin.",
+        "error"
+      );
       return;
     }
     setActionLoadingId(leaveId);
@@ -108,9 +133,24 @@ export const AdminDashboard = () => {
     }
   };
 
+  const handleRejectClick = (leaveId) => {
+    setRejectingLeaveId(leaveId);
+    setAdminRemarks("");
+  };
+
   const handleRejectConfirm = async (e) => {
     e.preventDefault();
     if (!rejectingLeaveId) return;
+
+    const targetLeave = leaves.find((l) => l.id === rejectingLeaveId) || selectedLeave;
+    if (targetLeave && targetLeave.employee_id === currentAdminId) {
+      showToast(
+        "You cannot approve your own leave request. This leave must be approved by another authorized approver or Superior Admin.",
+        "error"
+      );
+      setRejectingLeaveId(null);
+      return;
+    }
 
     setActionLoadingId(rejectingLeaveId);
     try {
@@ -213,10 +253,11 @@ export const AdminDashboard = () => {
     if (searchEmployee.trim()) {
       const q = searchEmployee.toLowerCase();
       const matchName = l.employee_name?.toLowerCase().includes(q);
+      const matchTeam = l.team_name?.toLowerCase().includes(q);
       const matchType = l.leave_type?.toLowerCase().includes(q);
       const matchSub = l.substitute_name?.toLowerCase().includes(q);
       const matchId = l.id?.toLowerCase().includes(q);
-      return matchName || matchType || matchSub || matchId;
+      return matchName || matchTeam || matchType || matchSub || matchId;
     }
 
     return true;
@@ -228,7 +269,7 @@ export const AdminDashboard = () => {
       <div className="admin-header-row">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <h2 className="admin-title">Team Admin Dashboard</h2>
+            <h2 className="admin-title">Team Approvals</h2>
             <span
               style={{
                 fontSize: "0.75rem",
@@ -241,11 +282,11 @@ export const AdminDashboard = () => {
                 textTransform: "uppercase",
               }}
             >
-              {adminTeam} Team
+              Approval Portal
             </span>
           </div>
           <p className="admin-subtitle">
-            Managing leave applications and presence for <strong>{adminTeam}</strong> (Lead: {adminName})
+            Managing leave applications and presence under your authorized approval permissions ({adminName})
           </p>
         </div>
         <button
@@ -264,6 +305,50 @@ export const AdminDashboard = () => {
           <p style={{ color: "#64748b", fontSize: "0.875rem" }}>
             Loading live team leave data from backend...
           </p>
+        </div>
+      )}
+
+      {/* No Permissions Banner */}
+      {!loading && noPermMessage && (
+        <div
+          className="table-card"
+          style={{
+            padding: "3.5rem 2rem",
+            textAlign: "center",
+            marginBottom: "1.5rem",
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              background: "#fef3c7",
+              color: "#d97706",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: "1rem",
+            }}
+          >
+            <Shield size={26} />
+          </div>
+          <h3 style={{ fontSize: "1.125rem", fontWeight: 700, color: "#0f172a", marginBottom: "0.4rem" }}>
+            No Leave Approval Permissions Assigned
+          </h3>
+          <p style={{ color: "#64748b", fontSize: "0.875rem", maxWidth: "480px", margin: "0 auto 1.25rem auto", lineHeight: 1.5 }}>
+            No leave approval permissions have been assigned to your account. You need designated team approval permissions configured by Superior Admin to view and approve team leave requests.
+          </p>
+          <button
+            className="secondary-btn"
+            onClick={() => fetchAdminLeaves(true)}
+            style={{ margin: "0 auto" }}
+          >
+            <RefreshCw size={13} />
+            <span>Check Again</span>
+          </button>
         </div>
       )}
 
@@ -794,6 +879,7 @@ export const AdminDashboard = () => {
                       <tr>
                         <th>Request ID</th>
                         <th>Employee Name</th>
+                        <th>Team</th>
                         <th>Leave Type</th>
                         <th>Dates / Permission</th>
                         <th>Duration</th>
@@ -829,6 +915,21 @@ export const AdminDashboard = () => {
                                   {leave.employee_code || leave.employee_email}
                                 </span>
                               </div>
+                            </td>
+                            <td>
+                              <span
+                                style={{
+                                  fontSize: "0.75rem",
+                                  fontWeight: 600,
+                                  padding: "0.2rem 0.55rem",
+                                  borderRadius: "6px",
+                                  background: "#f1f5f9",
+                                  color: "#334155",
+                                  border: "1px solid #e2e8f0",
+                                }}
+                              >
+                                {leave.team_name || "—"}
+                              </span>
                             </td>
                             <td>
                               <span className="font-semibold">{leave.leave_type}</span>
@@ -982,6 +1083,35 @@ export const AdminDashboard = () => {
 
               <div className="modal-grid-2">
                 <div className="modal-detail-item">
+                  <span className="detail-label">Team / Department</span>
+                  <span className="detail-value font-semibold" style={{ color: "#4f46e5" }}>
+                    {selectedLeave.team_name || "Unassigned"}
+                  </span>
+                </div>
+                <div className="modal-detail-item">
+                  <span className="detail-label">Required Approval Permission</span>
+                  <span
+                    className="detail-value"
+                    style={{
+                      fontFamily: "monospace",
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      background: "#f8fafc",
+                      padding: "0.2rem 0.5rem",
+                      borderRadius: "4px",
+                      border: "1px solid #e2e8f0",
+                      display: "inline-block",
+                      wordBreak: "break-all",
+                    }}
+                  >
+                    {selectedLeave.approval_permission_id || "None configured"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="modal-grid-2">
+                <div className="modal-detail-item">
                   <span className="detail-label">Dates / Schedule</span>
                   <span className="detail-value">
                     {selectedLeave.leave_type === "Time Permission"
@@ -1071,6 +1201,33 @@ export const AdminDashboard = () => {
                   </div>
                 </div>
               )}
+
+              {/* Self-approval notice for Team Lead */}
+              {selectedLeave.employee_id === currentAdminId && (
+                <div
+                  style={{
+                    marginTop: "16px",
+                    padding: "14px 16px",
+                    borderRadius: "8px",
+                    backgroundColor: "#fffbeb",
+                    border: "1px solid #f59e0b",
+                    color: "#92400e",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "12px",
+                    fontSize: "0.875rem",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <AlertTriangle size={20} style={{ color: "#d97706", flexShrink: 0, marginTop: "2px" }} />
+                  <div>
+                    <strong style={{ display: "block", color: "#b45309", marginBottom: "2px" }}>
+                      Self-Approval Not Permitted
+                    </strong>
+                    You cannot approve your own leave request. Team Lead leave must be approved by another Team Lead or Superior Admin.
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="modal-footer">
@@ -1081,7 +1238,7 @@ export const AdminDashboard = () => {
                 Close
               </button>
 
-              {selectedLeave.status === "Waiting for Admin Approval" && (
+              {selectedLeave.status === "Waiting for Admin Approval" && selectedLeave.employee_id !== currentAdminId && (
                 <>
                   <button
                     type="button"

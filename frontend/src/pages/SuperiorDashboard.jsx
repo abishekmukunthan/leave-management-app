@@ -20,10 +20,16 @@ import {
   AlertTriangle,
   CalendarDays,
   ArrowRight,
+  Shield,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { StatusBadge } from "../components/StatusBadge";
-import { getSuperiorDashboardSummary } from "../services/api";
+import {
+  getSuperiorDashboardSummary,
+  getTeamLeadLeaveRequests,
+  approveLeaveRequest,
+  rejectLeaveRequest,
+} from "../services/api";
 import {
   formatDateOnly,
   formatDateTime,
@@ -44,7 +50,7 @@ const getTeamColor = (teamName) => {
 };
 
 export const SuperiorDashboard = () => {
-  const { showToast } = useLeave();
+  const { showToast, loggedInUser } = useLeave();
   const navigate = useNavigate();
 
   const [summaryData, setSummaryData] = useState(null);
@@ -53,14 +59,37 @@ export const SuperiorDashboard = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [selectedLeave, setSelectedLeave] = useState(null);
 
+  // Team Lead leave requests state
+  const [teamLeadLeaves, setTeamLeadLeaves] = useState([]);
+  const [teamLeadLoading, setTeamLeadLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [rejectingLeaveId, setRejectingLeaveId] = useState(null);
+  const [rejectRemarks, setRejectRemarks] = useState("");
+
+  const fetchTeamLeadLeaves = useCallback(async () => {
+    try {
+      setTeamLeadLoading(true);
+      const res = await getTeamLeadLeaveRequests(loggedInUser?.id);
+      setTeamLeadLeaves(res.data || []);
+    } catch (err) {
+      console.error("Error loading team lead leave requests:", err);
+    } finally {
+      setTeamLeadLoading(false);
+    }
+  }, [loggedInUser?.id]);
+
   const fetchDashboardData = useCallback(async (isManual = false) => {
     if (isManual) {
       setLoading(true);
     }
     setError(null);
     try {
-      const data = await getSuperiorDashboardSummary();
+      const [data, tlRes] = await Promise.all([
+        getSuperiorDashboardSummary(),
+        getTeamLeadLeaveRequests(loggedInUser?.id).catch(() => ({ data: [] })),
+      ]);
       setSummaryData(data);
+      setTeamLeadLeaves(tlRes.data || []);
       setLastUpdated(new Date());
     } catch (err) {
       console.error("Error loading superior dashboard summary:", err);
@@ -71,16 +100,20 @@ export const SuperiorDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, loggedInUser?.id]);
 
   // Initial fetch + Auto-refresh every 10 seconds
   useEffect(() => {
     let isMounted = true;
 
-    getSuperiorDashboardSummary()
-      .then((data) => {
+    Promise.all([
+      getSuperiorDashboardSummary(),
+      getTeamLeadLeaveRequests(loggedInUser?.id).catch(() => ({ data: [] })),
+    ])
+      .then(([data, tlRes]) => {
         if (isMounted) {
           setSummaryData(data);
+          setTeamLeadLeaves(tlRes.data || []);
           setLastUpdated(new Date());
           setLoading(false);
         }
@@ -94,10 +127,14 @@ export const SuperiorDashboard = () => {
       });
 
     const intervalId = setInterval(() => {
-      getSuperiorDashboardSummary()
-        .then((data) => {
+      Promise.all([
+        getSuperiorDashboardSummary(),
+        getTeamLeadLeaveRequests(loggedInUser?.id).catch(() => ({ data: [] })),
+      ])
+        .then(([data, tlRes]) => {
           if (isMounted) {
             setSummaryData(data);
+            setTeamLeadLeaves(tlRes.data || []);
             setLastUpdated(new Date());
           }
         })
@@ -110,7 +147,51 @@ export const SuperiorDashboard = () => {
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, []);
+  }, [loggedInUser?.id]);
+
+  // Handle Superior Admin approve Team Lead leave
+  const handleApprove = async (leaveId) => {
+    if (!loggedInUser?.id) {
+      showToast("Please log in as Superior Admin to approve requests.", "warning");
+      return;
+    }
+    setActionLoadingId(leaveId);
+    try {
+      const res = await approveLeaveRequest(leaveId, loggedInUser.id);
+      showToast(res.message || "Team Lead leave approved successfully!", "success");
+      await fetchDashboardData(false);
+      setSelectedLeave(null);
+    } catch (err) {
+      console.error("Error approving leave:", err);
+      showToast(err.message || "Failed to approve leave request", "warning");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Handle Superior Admin reject Team Lead leave
+  const handleRejectConfirm = async (e) => {
+    e.preventDefault();
+    if (!rejectingLeaveId) return;
+    setActionLoadingId(rejectingLeaveId);
+    try {
+      const res = await rejectLeaveRequest(
+        rejectingLeaveId,
+        rejectRemarks.trim() || "Rejected by Superior Admin",
+        loggedInUser?.id
+      );
+      showToast(res.message || "Team Lead leave rejected.", "info");
+      setRejectingLeaveId(null);
+      setRejectRemarks("");
+      await fetchDashboardData(false);
+      setSelectedLeave(null);
+    } catch (err) {
+      console.error("Error rejecting leave:", err);
+      showToast(err.message || "Failed to reject leave request", "warning");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   // Duration text helper
   const getDurationText = (leave) => {
@@ -573,6 +654,22 @@ export const SuperiorDashboard = () => {
                   <p className="overview-subtitle">Awaiting peer handover</p>
                 </div>
               </div>
+
+              {/* Team Lead Pending Requests */}
+              <div className="overview-card" style={{ padding: "1rem" }}>
+                <div className="overview-card-header" style={{ marginBottom: "0.35rem" }}>
+                  <div className="overview-icon" style={{ background: "#ede9fe", color: "#6d28d9" }}>
+                    <Shield size={16} />
+                  </div>
+                  <span className="overview-count" style={{ fontSize: "1.35rem", color: "#6d28d9" }}>
+                    {teamLeadLeaves.filter((l) => l.status === "Waiting for Admin Approval").length}
+                  </span>
+                </div>
+                <div className="overview-card-body">
+                  <h4 className="overview-title" style={{ fontSize: "0.8125rem" }}>Team Lead Requests</h4>
+                  <p className="overview-subtitle">Awaiting superior review</p>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -990,7 +1087,209 @@ export const SuperiorDashboard = () => {
           </section>
 
           {/* =========================================================================
-              8. PENDING SUBSTITUTE APPROVALS
+              8. TEAM LEAD LEAVE REQUESTS (SUPERIOR ADMIN REVIEW & ACTION)
+             ========================================================================= */}
+          <section className="dashboard-section">
+            <div className="section-header">
+              <div>
+                <h3 className="section-title">
+                  <Shield size={18} style={{ color: "#4f46e5" }} />
+                  <span>Team Lead Leave Requests</span>
+                </h3>
+                <p className="section-subtitle">
+                  Applications submitted by Team Leads requiring independent review and approval by Superior Admin or authorized peer lead
+                </p>
+              </div>
+              <span className="counter-pill" style={{ background: "#ede9fe", color: "#6d28d9", fontWeight: 700 }}>
+                {teamLeadLeaves.filter((l) => l.status === "Waiting for Admin Approval").length} Awaiting Superior Decision
+              </span>
+            </div>
+
+            <div className="table-card">
+              {teamLeadLeaves.length === 0 ? (
+                <div className="empty-state-compact">
+                  <CheckCircle2 size={24} style={{ color: "#10B981" }} />
+                  <p>No leave requests found for Team Leads.</p>
+                </div>
+              ) : (
+                <div className="table-responsive">
+                  <table className="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Team Lead</th>
+                        <th>Team / Department</th>
+                        <th>Leave Type</th>
+                        <th>Duration</th>
+                        <th>Quota / Paycut</th>
+                        <th>Required Permission</th>
+                        <th>Substitute</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teamLeadLeaves.map((leave) => {
+                        const isPending = leave.status === "Waiting for Admin Approval";
+                        return (
+                          <tr key={`tl-leave-${leave.id}`}>
+                            <td>
+                              <div className="employee-info-cell">
+                                <strong className="employee-name" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                  {leave.employee_name}
+                                  <span
+                                    style={{
+                                      fontSize: "0.6875rem",
+                                      background: "#e0e7ff",
+                                      color: "#3730a3",
+                                      padding: "1px 6px",
+                                      borderRadius: "4px",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    Lead
+                                  </span>
+                                </strong>
+                                <span className="employee-id-sub">{leave.employee_email}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="team-name-cell">
+                                <span
+                                  className="team-dot"
+                                  style={{ backgroundColor: getTeamColor(leave.team_name) }}
+                                ></span>
+                                <span className="badge-default" style={{ fontSize: "0.75rem" }}>
+                                  {leave.team_name}
+                                </span>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="font-semibold">{leave.leave_type}</span>
+                            </td>
+                            <td>
+                              <span className="pill-duration">{getDurationText(leave)}</span>
+                            </td>
+                            <td>
+                              {leave.is_paycut_leave ? (
+                                <span
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "#b45309",
+                                    background: "#fef3c7",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  <AlertTriangle size={12} /> Paycut ({leave.paycut_units} units)
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    color: "#15803d",
+                                    background: "#dcfce7",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  Within Quota
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <code
+                                style={{
+                                  fontSize: "0.6875rem",
+                                  background: "#f1f5f9",
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  color: "#334155",
+                                }}
+                              >
+                                {leave.required_approval_permission || "None"}
+                              </code>
+                            </td>
+                            <td>
+                              <span className="substitute-cell">
+                                {leave.substitute_name ? (
+                                  `${leave.substitute_name} (${leave.substitute_status || "Pending"})`
+                                ) : (
+                                  "— None —"
+                                )}
+                              </span>
+                            </td>
+                            <td>
+                              <StatusBadge status={leave.status} />
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <button
+                                  type="button"
+                                  className="table-action-link"
+                                  onClick={() => setSelectedLeave(leave)}
+                                >
+                                  Review
+                                </button>
+                                {isPending && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      style={{
+                                        background: "#10b981",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        padding: "3px 8px",
+                                        fontSize: "0.75rem",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                      }}
+                                      disabled={actionLoadingId === leave.id}
+                                      onClick={() => handleApprove(leave.id)}
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      type="button"
+                                      style={{
+                                        background: "#ef4444",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        padding: "3px 8px",
+                                        fontSize: "0.75rem",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                      }}
+                                      disabled={actionLoadingId === leave.id}
+                                      onClick={() => {
+                                        setRejectingLeaveId(leave.id);
+                                        setRejectRemarks("");
+                                      }}
+                                    >
+                                      Reject
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* =========================================================================
+              9. PENDING SUBSTITUTE APPROVALS
              ========================================================================= */}
           <section className="dashboard-section">
             <div className="section-header">
@@ -1481,7 +1780,114 @@ export const SuperiorDashboard = () => {
               >
                 Close
               </button>
+
+              {selectedLeave.status === "Waiting for Admin Approval" && (
+                <>
+                  <button
+                    type="button"
+                    className="reject-btn"
+                    style={{
+                      background: "#fee2e2",
+                      color: "#b91c1c",
+                      border: "1px solid #f87171",
+                      borderRadius: "6px",
+                      padding: "8px 16px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                    disabled={actionLoadingId === selectedLeave.id}
+                    onClick={() => {
+                      const id = selectedLeave.id;
+                      setSelectedLeave(null);
+                      setRejectingLeaveId(id);
+                      setRejectRemarks("");
+                    }}
+                  >
+                    Reject Application
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    style={{
+                      background: "#10b981",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      padding: "8px 16px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                    disabled={actionLoadingId === selectedLeave.id}
+                    onClick={async () => {
+                      const id = selectedLeave.id;
+                      await handleApprove(id);
+                    }}
+                  >
+                    Approve Application
+                  </button>
+                </>
+              )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          REJECT MODAL FOR SUPERIOR ADMIN
+         ========================================================================= */}
+      {rejectingLeaveId && (
+        <div className="modal-backdrop" onClick={() => setRejectingLeaveId(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Reject Leave Application</h2>
+              <button
+                type="button"
+                className="close-btn"
+                onClick={() => setRejectingLeaveId(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleRejectConfirm}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label className="form-label">Rejection Remarks / Reason</label>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Please specify the reason for rejecting this leave application..."
+                    value={rejectRemarks}
+                    onChange={(e) => setRejectRemarks(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setRejectingLeaveId(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="reject-btn"
+                  style={{
+                    background: "#ef4444",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    padding: "8px 16px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                  disabled={actionLoadingId === rejectingLeaveId}
+                >
+                  {actionLoadingId === rejectingLeaveId ? "Rejecting..." : "Confirm Rejection"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

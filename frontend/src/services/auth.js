@@ -46,3 +46,14 @@ export const isTeamAdmin = (user) => user?.role === "team_admin" || user?.role =
 export const isSuperiorAdmin = (user) => user?.role === "superior_admin";
 export const isEmployee = (user) => user?.role === "employee";
 export const isAdmin = (user) => isTeamAdmin(user) || isSuperiorAdmin(user);
+
+export const canApproveLeaves = (user) => {
+  if (!user) return false;
+  if (isSuperiorAdmin(user)) return false; // Superior Admin has dedicated dashboard
+  if (user.can_approve_leaves === true) return true;
+  if (Number(user.approval_permissions_count) > 0) return true;
+  if (Array.isArray(user.incharge_teams) && user.incharge_teams.length > 0) return true;
+  if (isTeamAdmin(user)) return true;
+  return false;
+};
+

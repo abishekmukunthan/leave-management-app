@@ -12,6 +12,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   AlertCircle,
+  Shield,
+  Award,
+  Info,
+  Edit,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import {
@@ -19,6 +23,13 @@ import {
   createSuperiorUser,
   resetUserPassword,
   deactivateUser,
+  activateUser,
+  updateSuperiorUserDetails,
+  getSuperiorPermissions,
+  updateUserPermissions,
+  getSuperiorTeams,
+  promoteUserToTeamLead,
+  demoteTeamLead,
 } from "../services/api";
 
 const DEMO_TEAMS_LIST = [
@@ -42,6 +53,7 @@ export const UserManagementPage = () => {
   const { showToast, loggedInUser } = useLeave();
 
   const [users, setUsers] = useState([]);
+  const [teamsList, setTeamsList] = useState(DEMO_TEAMS_LIST);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -66,15 +78,48 @@ export const UserManagementPage = () => {
   // Deactivate Confirmation Modal
   const [deactivateTarget, setDeactivateTarget] = useState(null);
   const [deactivating, setDeactivating] = useState(false);
+  const [deactivateError, setDeactivateError] = useState("");
+
+  // Activate Confirmation Modal
+  const [activateTarget, setActivateTarget] = useState(null);
+  const [activating, setActivating] = useState(false);
+
+  // Edit User Modal State
+  const [editTarget, setEditTarget] = useState(null);
+  const [editingUser, setEditingUser] = useState(false);
+  const [editFormError, setEditFormError] = useState("");
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    email: "",
+    designation: "",
+    department: "",
+  });
+
+  // Manage Permissions Modal State
+  const [allPermissions, setAllPermissions] = useState([]);
+  const [managePermUser, setManagePermUser] = useState(null);
+  const [selectedPermIds, setSelectedPermIds] = useState([]);
+  const [savingPerms, setSavingPerms] = useState(false);
+
+  // Role Change Confirmation Modal State (Employee <-> Team Lead)
+  const [roleModal, setRoleModal] = useState({
+    isOpen: false,
+    type: "", // "PROMOTE" | "DEMOTE"
+    user: null,
+    selectedTeamId: "",
+    removePreviousLeadPermission: true,
+    isSubmitting: false,
+    error: "",
+  });
 
   // Add User Form State
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     role: "employee",
-    team_id: "d0000000-0000-0000-0000-000000000001",
+    team_id: "",
     designation: "",
-    department: "Engineering",
+    department: "",
     employment_type: "Full-time",
   });
 
@@ -82,8 +127,18 @@ export const UserManagementPage = () => {
     if (isManual) setLoading(true);
     setError(null);
     try {
-      const res = await getSuperiorUsers();
-      setUsers(res.users || []);
+      const [uRes, pRes, tRes] = await Promise.all([
+        getSuperiorUsers(),
+        getSuperiorPermissions(),
+        getSuperiorTeams().catch(() => ({ teams: DEMO_TEAMS_LIST })),
+      ]);
+      setUsers(uRes.users || []);
+      setAllPermissions(pRes.data || []);
+      if (tRes && tRes.teams && tRes.teams.length > 0) {
+        setTeamsList(tRes.teams);
+      } else if (Array.isArray(tRes) && tRes.length > 0) {
+        setTeamsList(tRes);
+      }
     } catch (err) {
       console.error("Error fetching user management list:", err);
       setError(err.message || "Failed to load user list from server");
@@ -94,10 +149,20 @@ export const UserManagementPage = () => {
 
   useEffect(() => {
     let isMounted = true;
-    getSuperiorUsers()
-      .then((res) => {
+    Promise.all([
+      getSuperiorUsers(),
+      getSuperiorPermissions(),
+      getSuperiorTeams().catch(() => ({ teams: DEMO_TEAMS_LIST })),
+    ])
+      .then(([uRes, pRes, tRes]) => {
         if (isMounted) {
-          setUsers(res.users || []);
+          setUsers(uRes.users || []);
+          setAllPermissions(pRes.data || []);
+          if (tRes && tRes.teams && tRes.teams.length > 0) {
+            setTeamsList(tRes.teams);
+          } else if (Array.isArray(tRes) && tRes.length > 0) {
+            setTeamsList(tRes);
+          }
           setLoading(false);
         }
       })
@@ -113,13 +178,131 @@ export const UserManagementPage = () => {
     };
   }, []);
 
+  const handleOpenManagePermissions = (user) => {
+    setManagePermUser(user);
+    setSelectedPermIds(Array.isArray(user.permissions) ? [...user.permissions] : []);
+  };
+
+  const handleSavePermissions = async (e) => {
+    e.preventDefault();
+    if (!managePermUser) return;
+    setSavingPerms(true);
+    try {
+      await updateUserPermissions(managePermUser.id, selectedPermIds, loggedInUser?.id);
+      showToast(`Permissions updated for ${managePermUser.name}!`, "success");
+      setManagePermUser(null);
+      await fetchUsersList();
+    } catch (err) {
+      console.error("Error updating user permissions:", err);
+      showToast(err.message || "Failed to update user permissions", "warning");
+    } finally {
+      setSavingPerms(false);
+    }
+  };
+
+  // Role dropdown change triggered from table cell
+  const handleRoleSelectChange = (user, newRole) => {
+    if (user.role === newRole) return;
+
+    if (user.role === "superior_admin") {
+      showToast("Superior Admin accounts are permanently protected.", "warning");
+      return;
+    }
+
+    if (loggedInUser && String(user.id) === String(loggedInUser.id)) {
+      showToast("You cannot change your own role.", "warning");
+      return;
+    }
+
+    if (newRole === "team_admin") {
+      const defaultTeamId = user.team_id || (teamsList[0]?.id || "");
+      setRoleModal({
+        isOpen: true,
+        type: "PROMOTE",
+        user,
+        selectedTeamId: defaultTeamId,
+        removePreviousLeadPermission: true,
+        isSubmitting: false,
+        error: "",
+      });
+    } else if (newRole === "employee") {
+      if (user.is_team_lead_of_team_id || user.incharge_of_team_id) {
+        showToast(
+          "This user is currently assigned as Team In-charge. Please remove or change the Team In-charge assignment before changing role.",
+          "warning"
+        );
+        return;
+      }
+      setRoleModal({
+        isOpen: true,
+        type: "DEMOTE",
+        user,
+        selectedTeamId: "",
+        removePreviousLeadPermission: true,
+        isSubmitting: false,
+        error: "",
+      });
+    }
+  };
+
+  const handleCloseRoleModal = () => {
+    setRoleModal({
+      isOpen: false,
+      type: "",
+      user: null,
+      selectedTeamId: "",
+      removePreviousLeadPermission: true,
+      isSubmitting: false,
+      error: "",
+    });
+  };
+
+  const handleConfirmRoleChange = async (e) => {
+    e.preventDefault();
+    if (!roleModal.user) return;
+
+    setRoleModal((prev) => ({ ...prev, isSubmitting: true, error: "" }));
+
+    try {
+      if (roleModal.type === "PROMOTE") {
+        if (!roleModal.selectedTeamId) {
+          setRoleModal((prev) => ({ ...prev, error: "Please select a team to lead.", isSubmitting: false }));
+          return;
+        }
+
+        await promoteUserToTeamLead(roleModal.user.id, {
+          team_id: roleModal.selectedTeamId,
+          remove_previous_lead_permission: roleModal.removePreviousLeadPermission,
+        });
+
+        const teamObj = teamsList.find((t) => t.id === roleModal.selectedTeamId);
+        showToast(
+          `Successfully promoted ${roleModal.user.name} to Team Lead of ${teamObj ? teamObj.name : "the team"}!`,
+          "success"
+        );
+      } else if (roleModal.type === "DEMOTE") {
+        await demoteTeamLead(roleModal.user.id);
+        showToast(
+          `Successfully demoted ${roleModal.user.name} to Employee. Team lead assignment and approval permissions revoked.`,
+          "info"
+        );
+      }
+
+      handleCloseRoleModal();
+      await fetchUsersList();
+    } catch (err) {
+      console.error("Error executing role change:", err);
+      setRoleModal((prev) => ({ ...prev, error: err.message || "Failed to update role.", isSubmitting: false }));
+    }
+  };
+
   // Handle Team Change in Form to keep Department auto-synced
   const handleTeamChange = (e) => {
     const selectedTeamId = e.target.value;
-    const teamObj = DEMO_TEAMS_LIST.find((t) => t.id === selectedTeamId);
+    const teamObj = teamsList.find((t) => t.id === selectedTeamId) || DEMO_TEAMS_LIST.find((t) => t.id === selectedTeamId);
     setFormData((prev) => ({
       ...prev,
-      team_id: selectedTeamId,
+      team_id: selectedTeamId || "",
       department: teamObj ? teamObj.name : prev.department,
     }));
   };
@@ -145,8 +328,9 @@ export const UserManagementPage = () => {
         ...formData,
         name: formData.name.trim(),
         email: formData.email.trim(),
-        designation: formData.designation.trim() || "Employee",
-        department: formData.department.trim() || "Engineering",
+        team_id: formData.team_id || null,
+        designation: formData.designation.trim() || (formData.role === "team_admin" ? "Team Lead" : "Employee"),
+        department: formData.department.trim() || (formData.team_id ? "Engineering" : "General"),
         created_by: loggedInUser?.id || null,
       };
 
@@ -162,9 +346,9 @@ export const UserManagementPage = () => {
         name: "",
         email: "",
         role: "employee",
-        team_id: "d0000000-0000-0000-0000-000000000001",
+        team_id: "",
         designation: "",
-        department: "Engineering",
+        department: "",
         employment_type: "Full-time",
       });
 
@@ -193,21 +377,96 @@ export const UserManagementPage = () => {
     }
   };
 
+  // Open Edit User Modal
+  const handleOpenEditModal = (user) => {
+    setEditTarget(user);
+    setEditFormError("");
+    setEditFormData({
+      name: user.name || "",
+      email: user.email || "",
+      designation: user.designation || "",
+      department: user.department || "",
+    });
+  };
+
+  // Submit Edit User
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault();
+    if (!editTarget) return;
+
+    if (!editFormData.name.trim()) {
+      setEditFormError("Full Name is required.");
+      return;
+    }
+    if (!editFormData.email.trim()) {
+      setEditFormError("Email Address is required.");
+      return;
+    }
+
+    setEditingUser(true);
+    setEditFormError("");
+
+    try {
+      await updateSuperiorUserDetails(
+        editTarget.id,
+        {
+          name: editFormData.name.trim(),
+          email: editFormData.email.trim(),
+          designation: editFormData.designation.trim(),
+          department: editFormData.department.trim(),
+        },
+        loggedInUser?.id
+      );
+
+      showToast(`User details updated for ${editFormData.name.trim()}!`, "success");
+      setEditTarget(null);
+      fetchUsersList();
+    } catch (err) {
+      console.error("Failed to update user details:", err);
+      setEditFormError(err.message || "Failed to update user details.");
+      showToast(err.message || "Failed to update user details.", "warning");
+    } finally {
+      setEditingUser(false);
+    }
+  };
+
   // Submit Deactivate
   const handleConfirmDeactivate = async () => {
     if (!deactivateTarget) return;
     setDeactivating(true);
+    setDeactivateError("");
 
     try {
-      await deactivateUser(deactivateTarget.id);
-      showToast(`Deactivated ${deactivateTarget.name}'s account.`, "info");
+      await deactivateUser(deactivateTarget.id, loggedInUser?.id);
+      showToast("User deactivated successfully.", "info");
       setDeactivateTarget(null);
+      setDeactivateError("");
       fetchUsersList();
     } catch (err) {
       console.error("Failed to deactivate user:", err);
-      showToast(err.message || "Failed to deactivate user", "warning");
+      const errMsg = err.message || "Failed to deactivate user";
+      setDeactivateError(errMsg);
+      showToast(errMsg, "warning");
     } finally {
       setDeactivating(false);
+    }
+  };
+
+  // Submit Activate
+  const handleConfirmActivate = async () => {
+    if (!activateTarget) return;
+    setActivating(true);
+
+    try {
+      await activateUser(activateTarget.id, loggedInUser?.id);
+      showToast("User activated successfully.", "success");
+      setActivateTarget(null);
+      fetchUsersList();
+    } catch (err) {
+      console.error("Failed to activate user:", err);
+      showToast(err.message || "Failed to activate user", "warning");
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -373,8 +632,10 @@ export const UserManagementPage = () => {
                     <th>Username</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th>In-charge of</th>
                     <th>Team</th>
                     <th>Designation</th>
+                    <th>Permissions</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -388,6 +649,12 @@ export const UserManagementPage = () => {
                     const isSuperior = user.role === "superior_admin";
                     const isTeamLead = user.role === "team_admin" || user.role === "admin";
                     const isActive = user.is_active !== false;
+                    const isSelf = loggedInUser && String(user.id) === String(loggedInUser.id);
+                    const permCount = user.approval_permissions_count !== undefined
+                      ? user.approval_permissions_count
+                      : Array.isArray(user.permissions)
+                      ? user.permissions.length
+                      : 0;
 
                     return (
                       <tr key={user.id}>
@@ -432,63 +699,115 @@ export const UserManagementPage = () => {
                               style={{
                                 fontSize: "0.6875rem",
                                 fontWeight: 700,
-                                padding: "0.15rem 0.5rem",
+                                padding: "0.2rem 0.55rem",
                                 borderRadius: "9999px",
                                 background: "#fce7f3",
                                 color: "#be185d",
                                 border: "1px solid #fbcfe8",
                                 textTransform: "uppercase",
+                                display: "inline-block",
                               }}
+                              title="Superior Admin accounts cannot be modified or demoted"
                             >
                               Superior Admin
                             </span>
-                          ) : isTeamLead ? (
+                          ) : isSelf ? (
                             <span
                               style={{
                                 fontSize: "0.6875rem",
                                 fontWeight: 700,
-                                padding: "0.15rem 0.5rem",
+                                padding: "0.2rem 0.55rem",
                                 borderRadius: "9999px",
-                                background: "#f3e8ff",
-                                color: "#7e22ce",
-                                border: "1px solid #e9d5ff",
+                                background: isTeamLead ? "#f3e8ff" : "#e0f2fe",
+                                color: isTeamLead ? "#7e22ce" : "#0369a1",
+                                border: `1px solid ${isTeamLead ? "#e9d5ff" : "#bae6fd"}`,
                                 textTransform: "uppercase",
+                                display: "inline-block",
                               }}
+                              title="You cannot change your own role"
                             >
-                              Team Lead
+                              {isTeamLead ? "Team Lead" : "Employee"} (You)
                             </span>
                           ) : (
-                            <span
-                              style={{
-                                fontSize: "0.6875rem",
-                                fontWeight: 700,
-                                padding: "0.15rem 0.5rem",
-                                borderRadius: "9999px",
-                                background: "#e0f2fe",
-                                color: "#0369a1",
-                                border: "1px solid #bae6fd",
-                                textTransform: "uppercase",
-                              }}
+                            <select
+                              className={`editable-role-select ${isTeamLead ? "role-team-lead" : "role-employee"}`}
+                              value={isTeamLead ? "team_admin" : "employee"}
+                              onChange={(e) => handleRoleSelectChange(user, e.target.value)}
+                              title="Change user role (opens confirmation modal)"
                             >
-                              Employee
-                            </span>
+                              <option value="employee">Employee</option>
+                              <option value="team_admin">Team Lead</option>
+                            </select>
                           )}
                         </td>
                         <td>
-                          <div className="team-name-cell">
+                          {(user.is_team_lead_of_team_name || user.incharge_of_team_name) ? (
                             <span
-                              className="team-dot"
-                              style={{ backgroundColor: getTeamColor(user.team_name) }}
-                            ></span>
-                            <span className="font-medium" style={{ fontSize: "0.8125rem", color: "#0f172a" }}>
-                              {user.team_name}
+                              style={{
+                                fontSize: "0.725rem",
+                                fontWeight: 700,
+                                padding: "0.2rem 0.55rem",
+                                borderRadius: "9999px",
+                                background: "#f3e8ff",
+                                color: "#6b21a8",
+                                border: "1px solid #d8b4fe",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.25rem",
+                              }}
+                            >
+                              <Award size={11} />
+                              <span>In-charge: {user.is_team_lead_of_team_name || user.incharge_of_team_name}</span>
                             </span>
-                          </div>
+                          ) : (
+                            <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          {user.team_name && user.team_name !== "Unassigned" && user.team_id ? (
+                            <div className="team-name-cell">
+                              <span
+                                className="team-dot"
+                                style={{ backgroundColor: getTeamColor(user.team_name) }}
+                              ></span>
+                              <span className="font-medium" style={{ fontSize: "0.8125rem", color: "#0f172a" }}>
+                                {user.team_name}
+                              </span>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: "0.8125rem", color: "#94a3b8", fontStyle: "italic" }}>
+                              No team assigned
+                            </span>
+                          )}
                         </td>
                         <td>
                           <span style={{ fontSize: "0.8125rem", color: "#475569" }}>
                             {user.designation || "Employee"}
                           </span>
+                        </td>
+                        <td>
+                          {permCount > 0 ? (
+                            <span
+                              style={{
+                                fontSize: "0.725rem",
+                                fontWeight: 600,
+                                padding: "0.2rem 0.5rem",
+                                borderRadius: "9999px",
+                                background: "#e0e7ff",
+                                color: "#4338ca",
+                                border: "1px solid #c7d2fe",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.25rem",
+                              }}
+                              title={user.permissions ? user.permissions.join("\n") : ""}
+                            >
+                              <Shield size={11} />
+                              <span>{permCount} {permCount === 1 ? "Permission" : "Permissions"}</span>
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>No permissions</span>
+                          )}
                         </td>
                         <td>
                           {isActive ? (
@@ -498,11 +817,20 @@ export const UserManagementPage = () => {
                           )}
                         </td>
                         <td>
-                          <div className="admin-action-buttons">
+                          <div className="user-action-buttons-vertical">
                             <button
                               type="button"
-                              className="secondary-btn"
-                              style={{ padding: "0.25rem 0.55rem", fontSize: "0.75rem" }}
+                              className="action-btn-vertical secondary-btn"
+                              onClick={() => handleOpenManagePermissions(user)}
+                              title="Manage leave approval permissions"
+                            >
+                              <Shield size={13} />
+                              <span>Permissions</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="action-btn-vertical secondary-btn"
                               onClick={() => handleConfirmResetPassword(user.id, user.name)}
                               title="Reset password for user"
                             >
@@ -510,16 +838,38 @@ export const UserManagementPage = () => {
                               <span>Reset Password</span>
                             </button>
 
-                            {isActive && !isSuperior && (
+                            <button
+                              type="button"
+                              className="action-btn-vertical secondary-btn"
+                              onClick={() => handleOpenEditModal(user)}
+                              title="Edit user details"
+                            >
+                              <Edit size={13} />
+                              <span>Edit</span>
+                            </button>
+
+                            {isActive ? (
                               <button
                                 type="button"
-                                className="admin-reject-btn"
-                                style={{ padding: "0.25rem 0.55rem", fontSize: "0.75rem" }}
-                                onClick={() => setDeactivateTarget(user)}
+                                className="action-btn-vertical admin-reject-btn"
+                                onClick={() => {
+                                  setDeactivateError("");
+                                  setDeactivateTarget(user);
+                                }}
                                 title="Deactivate user account"
                               >
                                 <UserX size={13} />
-                                <span>Deactivate</span>
+                                <span>Deactivate User</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="action-btn-vertical admin-approve-btn"
+                                onClick={() => setActivateTarget(user)}
+                                title="Activate user account"
+                              >
+                                <CheckCircle2 size={13} />
+                                <span>Activate User</span>
                               </button>
                             )}
                           </div>
@@ -607,33 +957,106 @@ export const UserManagementPage = () => {
                       id="userRole"
                       className="form-select"
                       value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                      onChange={(e) => {
+                        const newRole = e.target.value;
+                        setFormData({
+                          ...formData,
+                          role: newRole,
+                          team_id: newRole === "superior_admin" ? "" : formData.team_id,
+                        });
+                      }}
                       required
                     >
                       <option value="employee">Employee</option>
                       <option value="team_admin">Team Lead (Team Admin)</option>
+                      <option value="superior_admin">Superior Admin</option>
                     </select>
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="userTeam" className="form-label required">
-                      Assigned Team
-                    </label>
-                    <select
-                      id="userTeam"
-                      className="form-select"
-                      value={formData.team_id}
-                      onChange={handleTeamChange}
-                      required
-                    >
-                      {DEMO_TEAMS_LIST.map((team) => (
-                        <option key={team.id} value={team.id}>
-                          {team.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {formData.role !== "superior_admin" && (
+                    <div className="form-group">
+                      <label htmlFor="userTeam" className="form-label">
+                        Assigned Team <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: "normal" }}>(Optional)</span>
+                      </label>
+                      <select
+                        id="userTeam"
+                        className="form-select"
+                        value={formData.team_id}
+                        onChange={handleTeamChange}
+                      >
+                        <option value="">No team assigned</option>
+                        {teamsList.map((team) => (
+                          <option key={team.id} value={team.id}>
+                            {team.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
+
+                {formData.role === "superior_admin" && (
+                  <div
+                    style={{
+                      padding: "0.65rem 0.85rem",
+                      background: "#fdf2f8",
+                      border: "1px solid #fbcfe8",
+                      borderRadius: "6px",
+                      fontSize: "0.75rem",
+                      color: "#9d174d",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "0.45rem",
+                    }}
+                  >
+                    <Shield size={15} style={{ flexShrink: 0, marginTop: "1px" }} />
+                    <span>
+                      Superior Admin users are not assigned to a team and will have system administration access.
+                    </span>
+                  </div>
+                )}
+
+                {formData.role === "team_admin" && (
+                  formData.team_id ? (
+                    <div
+                      style={{
+                        padding: "0.65rem 0.85rem",
+                        background: "#f5f3ff",
+                        border: "1px solid #ddd6fe",
+                        borderRadius: "6px",
+                        fontSize: "0.75rem",
+                        color: "#5b21b6",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "0.45rem",
+                      }}
+                    >
+                      <CheckCircle2 size={15} style={{ flexShrink: 0, marginTop: "1px" }} />
+                      <span>
+                        Creating as <strong>Team Lead</strong> with an assigned team will automatically set this user to lead that team and grant them the configured team leave approval permission.
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        padding: "0.65rem 0.85rem",
+                        background: "#fffbeb",
+                        border: "1px solid #fde68a",
+                        borderRadius: "6px",
+                        fontSize: "0.75rem",
+                        color: "#92400e",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "0.45rem",
+                      }}
+                    >
+                      <Info size={15} style={{ flexShrink: 0, marginTop: "1px" }} />
+                      <span>
+                        This user is created without a team. Assign them as Team In-charge later if they need approval access.
+                      </span>
+                    </div>
+                  )
+                )}
 
                 {/* 3. Designation & Department */}
                 <div className="form-row-2">
@@ -910,7 +1333,7 @@ export const UserManagementPage = () => {
               <div>
                 <h2 style={{ color: "#991b1b", display: "flex", alignItems: "center", gap: "0.45rem" }}>
                   <UserX size={18} className="text-red" />
-                  <span>Deactivate User Account</span>
+                  <span>Deactivate User</span>
                 </h2>
               </div>
               <button className="modal-close-btn" onClick={() => setDeactivateTarget(null)}>
@@ -919,12 +1342,53 @@ export const UserManagementPage = () => {
             </div>
 
             <div className="modal-body">
+              {deactivateTarget.role === "superior_admin" && (
+                <div
+                  style={{
+                    padding: "0.75rem 0.9rem",
+                    background: "#fffbeb",
+                    border: "1px solid #fde68a",
+                    borderRadius: "8px",
+                    color: "#92400e",
+                    fontSize: "0.8125rem",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "0.5rem",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  <AlertTriangle size={17} style={{ flexShrink: 0, marginTop: "1px", color: "#d97706" }} />
+                  <span>
+                    <strong>Warning:</strong> You are deactivating a Superior Admin account. At least one active Superior Admin must remain in the system.
+                  </span>
+                </div>
+              )}
+
+              {deactivateError && (
+                <div
+                  style={{
+                    padding: "0.75rem 0.9rem",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: "8px",
+                    color: "#b91c1c",
+                    fontSize: "0.8125rem",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "0.5rem",
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  <AlertCircle size={17} style={{ flexShrink: 0, marginTop: "1px" }} />
+                  <span>{deactivateError}</span>
+                </div>
+              )}
+
               <p style={{ fontSize: "0.875rem", color: "#0f172a", margin: 0 }}>
-                Are you sure you want to deactivate <strong>{deactivateTarget.name}</strong> (
-                <span className="font-mono">{deactivateTarget.username}</span>)?
+                Are you sure you want to deactivate this user? The user will not be able to log in, but their leave history will remain unchanged.
               </p>
-              <p style={{ fontSize: "0.75rem", color: "#64748b", margin: 0 }}>
-                This will prevent the user from logging in to LeaveEase and mark their profile as inactive.
+              <p style={{ fontSize: "0.8125rem", color: "#475569", margin: "0.35rem 0 0 0" }}>
+                Target user: <strong>{deactivateTarget.name}</strong> (<span className="font-mono">{deactivateTarget.username}</span>)
               </p>
             </div>
 
@@ -944,12 +1408,655 @@ export const UserManagementPage = () => {
                 disabled={deactivating}
                 style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
               >
-                {deactivating ? "Deactivating..." : "Yes, Deactivate Account"}
+                {deactivating ? "Deactivating..." : "Deactivate"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 4C: EDIT USER DETAILS
+         ========================================================================= */}
+      {editTarget && (
+        <div className="modal-backdrop" onClick={() => !editingUser && setEditTarget(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px" }}>
+            <div className="modal-header">
+              <div>
+                <h2 style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                  <Edit size={18} className="text-blue" />
+                  <span>Edit User Details</span>
+                </h2>
+                <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}>
+                  Update user profile information. Role, permissions, and leave history remain safely preserved.
+                </p>
+              </div>
+              <button
+                className="modal-close-btn"
+                onClick={() => setEditTarget(null)}
+                disabled={editingUser}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditUser}>
+              <div className="modal-body" style={{ gap: "1rem" }}>
+                {editFormError && (
+                  <div
+                    style={{
+                      padding: "0.65rem 0.85rem",
+                      background: "#fef2f2",
+                      border: "1px solid #fecaca",
+                      borderRadius: "6px",
+                      color: "#b91c1c",
+                      fontSize: "0.8125rem",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: "1px" }} />
+                    <span>{editFormError}</span>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label htmlFor="editUserName" className="form-label required">
+                    Full Name
+                  </label>
+                  <input
+                    id="editUserName"
+                    type="text"
+                    className="form-input"
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="editUserEmail" className="form-label required">
+                    Email Address
+                  </label>
+                  <input
+                    id="editUserEmail"
+                    type="email"
+                    className="form-input"
+                    value={editFormData.email}
+                    onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="form-row-2">
+                  <div className="form-group">
+                    <label className="form-label">Role</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={
+                        editTarget.role === "superior_admin"
+                          ? "Superior Admin"
+                          : editTarget.role === "team_admin"
+                          ? "Team Lead"
+                          : "Employee"
+                      }
+                      disabled
+                      style={{ background: "#f1f5f9", cursor: "not-allowed" }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Assigned Team</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={
+                        editTarget.role === "superior_admin"
+                          ? "No Team (System Admin)"
+                          : editTarget.team_name || "Unassigned"
+                      }
+                      disabled
+                      style={{ background: "#f1f5f9", cursor: "not-allowed" }}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row-2">
+                  <div className="form-group">
+                    <label htmlFor="editUserDesignation" className="form-label">
+                      Designation / Job Title
+                    </label>
+                    <input
+                      id="editUserDesignation"
+                      type="text"
+                      className="form-input"
+                      value={editFormData.designation}
+                      onChange={(e) => setEditFormData({ ...editFormData, designation: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="editUserDepartment" className="form-label">
+                      Department
+                    </label>
+                    <input
+                      id="editUserDepartment"
+                      type="text"
+                      className="form-input"
+                      value={editFormData.department}
+                      onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setEditTarget(null)}
+                  disabled={editingUser}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={editingUser}
+                >
+                  {editingUser ? "Saving Changes..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 4B: ACTIVATE CONFIRMATION
+         ========================================================================= */}
+      {activateTarget && (
+        <div className="modal-backdrop" onClick={() => setActivateTarget(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "460px" }}>
+            <div className="modal-header" style={{ background: "#ecfdf5", borderBottomColor: "#a7f3d0" }}>
+              <div>
+                <h2 style={{ color: "#065f46", display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                  <CheckCircle2 size={18} style={{ color: "#10B981" }} />
+                  <span>Activate User</span>
+                </h2>
+              </div>
+              <button className="modal-close-btn" onClick={() => setActivateTarget(null)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p style={{ fontSize: "0.875rem", color: "#0f172a", margin: 0 }}>
+                Are you sure you want to activate this user again?
+              </p>
+              <p style={{ fontSize: "0.8125rem", color: "#475569", margin: "0.35rem 0 0 0" }}>
+                Target user: <strong>{activateTarget.name}</strong> (<span className="font-mono">{activateTarget.username}</span>)
+              </p>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setActivateTarget(null)}
+                disabled={activating}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-approve-btn"
+                onClick={handleConfirmActivate}
+                disabled={activating}
+                style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
+              >
+                {activating ? "Activating..." : "Activate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 5: MANAGE USER PERMISSIONS
+         ========================================================================= */}
+      {managePermUser && (
+        <div className="modal-backdrop" onClick={() => setManagePermUser(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "580px" }}>
+            <div className="modal-header">
+              <div>
+                <h2 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <Shield size={18} className="text-purple" />
+                  <span>Manage User Permissions</span>
+                </h2>
+                <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}>
+                  Configure leave approval permissions assigned to this user.
+                </p>
+              </div>
+              <button className="modal-close-btn" onClick={() => setManagePermUser(null)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePermissions}>
+              <div className="modal-body" style={{ gap: "1rem" }}>
+                {/* User profile summary strip */}
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "8px",
+                    padding: "0.75rem 1rem",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <div>
+                    <strong style={{ fontSize: "0.875rem", color: "#0f172a", display: "block" }}>
+                      {managePermUser.name}
+                    </strong>
+                    <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{managePermUser.email}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <span
+                      style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 700,
+                        padding: "0.15rem 0.5rem",
+                        borderRadius: "9999px",
+                        background: "#f3e8ff",
+                        color: "#7e22ce",
+                        border: "1px solid #e9d5ff",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {managePermUser.role.replace("_", " ")}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        color: "#475569",
+                        background: "#f1f5f9",
+                        padding: "0.15rem 0.5rem",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      Team: {managePermUser.team_name || "Unassigned"}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                    <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>
+                      Approval Permissions
+                    </label>
+                    <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                      {selectedPermIds.length} of {allPermissions.filter((p) => p.is_active !== false).length} selected
+                    </span>
+                  </div>
+
+                  {allPermissions.filter((p) => p.is_active !== false).length === 0 ? (
+                    <div style={{ padding: "1.5rem", textAlign: "center", color: "#64748b", border: "1px dashed #cbd5e1", borderRadius: "8px" }}>
+                      <p style={{ margin: 0, fontSize: "0.8125rem" }}>No active leave approval permissions configured.</p>
+                      <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.75rem" }}>
+                        Go to System Configuration &gt; Permissions to generate or create permissions first.
+                      </p>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
+                        maxHeight: "280px",
+                        overflowY: "auto",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "8px",
+                        padding: "0.5rem",
+                        background: "#f8fafc",
+                      }}
+                    >
+                      {allPermissions
+                        .filter((p) => p.is_active !== false)
+                        .map((perm) => {
+                          const isChecked = selectedPermIds.includes(perm.id);
+                          return (
+                            <label
+                              key={perm.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: "0.65rem",
+                                padding: "0.6rem 0.75rem",
+                                borderRadius: "6px",
+                                background: isChecked ? "#f0fdf4" : "#ffffff",
+                                border: `1px solid ${isChecked ? "#86efac" : "#e2e8f0"}`,
+                                cursor: "pointer",
+                                transition: "all 0.15s ease",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedPermIds([...selectedPermIds, perm.id]);
+                                  } else {
+                                    setSelectedPermIds(selectedPermIds.filter((id) => id !== perm.id));
+                                  }
+                                }}
+                                style={{ width: "16px", height: "16px", marginTop: "0.15rem", cursor: "pointer" }}
+                              />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                  <code
+                                    style={{
+                                      fontFamily: "monospace",
+                                      fontSize: "0.75rem",
+                                      fontWeight: 700,
+                                      color: isChecked ? "#166534" : "#1e293b",
+                                    }}
+                                  >
+                                    {perm.id}
+                                  </code>
+                                </div>
+                                <p style={{ margin: "0.15rem 0 0 0", fontSize: "0.75rem", color: "#64748b" }}>
+                                  {perm.description}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setManagePermUser(null)}
+                  disabled={savingPerms}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="primary-btn"
+                  disabled={savingPerms}
+                >
+                  {savingPerms ? "Saving Permissions..." : `Save Permissions (${selectedPermIds.length})`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 6: ROLE CHANGE CONFIRMATION (PROMOTE / DEMOTE)
+         ========================================================================= */}
+      {roleModal.isOpen && roleModal.user && (
+        <div className="modal-backdrop" onClick={handleCloseRoleModal}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "520px" }}>
+            {roleModal.type === "PROMOTE" ? (
+              <>
+                <div className="modal-header">
+                  <div>
+                    <h2 style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                      <Award size={18} className="text-purple" />
+                      <span>Promote to Team Lead</span>
+                    </h2>
+                    <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}>
+                      Assign team leadership and grant leave approval permissions for {roleModal.user.name}.
+                    </p>
+                  </div>
+                  <button className="modal-close-btn" onClick={handleCloseRoleModal}>
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleConfirmRoleChange}>
+                  <div className="modal-body" style={{ gap: "1rem" }}>
+                    {roleModal.error && (
+                      <div className="form-error-alert" style={{ margin: 0 }}>
+                        <AlertCircle size={16} />
+                        <span>{roleModal.error}</span>
+                      </div>
+                    )}
+
+                    {/* Target User Info */}
+                    <div
+                      style={{
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "8px",
+                        padding: "0.75rem 1rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div>
+                        <strong style={{ fontSize: "0.875rem", color: "#0f172a", display: "block" }}>
+                          {roleModal.user.name}
+                        </strong>
+                        <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{roleModal.user.email}</div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "0.6875rem",
+                          fontWeight: 700,
+                          padding: "0.15rem 0.5rem",
+                          borderRadius: "9999px",
+                          background: "#e0f2fe",
+                          color: "#0369a1",
+                          border: "1px solid #bae6fd",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Current: Employee
+                      </span>
+                    </div>
+
+                    {/* Team Selection */}
+                    <div className="form-group">
+                      <label htmlFor="promoteTeamSelect" className="form-label required">
+                        Select Team to Lead
+                      </label>
+                      <select
+                        id="promoteTeamSelect"
+                        className="form-select"
+                        value={roleModal.selectedTeamId}
+                        onChange={(e) => setRoleModal({ ...roleModal, selectedTeamId: e.target.value })}
+                        required
+                      >
+                        <option value="">-- Choose a team --</option>
+                        {teamsList.map((team) => (
+                          <option key={team.id} value={team.id}>
+                            {team.name} {team.team_admin_name ? `(Current Lead: ${team.team_admin_name})` : "(Unassigned)"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Notice if team already has a lead */}
+                    {(() => {
+                      const selTeam = teamsList.find((t) => t.id === roleModal.selectedTeamId);
+                      if (selTeam?.team_admin_name && selTeam.team_admin_name !== "Unassigned" && String(selTeam.team_admin_id) !== String(roleModal.user.id)) {
+                        return (
+                          <div
+                            style={{
+                              padding: "0.65rem 0.85rem",
+                              background: "#fffbeb",
+                              border: "1px solid #fde68a",
+                              borderRadius: "6px",
+                              fontSize: "0.75rem",
+                              color: "#92400e",
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: "0.45rem",
+                            }}
+                          >
+                            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: "1px" }} />
+                            <span>
+                              <strong>{selTeam.team_admin_name}</strong> is currently assigned as the Team Lead of <strong>{selTeam.name}</strong>. Promoting {roleModal.user.name} will replace them as team lead.
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {/* Checkbox: Remove permission from previous lead */}
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "0.55rem",
+                        padding: "0.6rem 0.75rem",
+                        borderRadius: "6px",
+                        background: "#f1f5f9",
+                        border: "1px solid #cbd5e1",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={roleModal.removePreviousLeadPermission}
+                        onChange={(e) => setRoleModal({ ...roleModal, removePreviousLeadPermission: e.target.checked })}
+                        style={{ marginTop: "2px", cursor: "pointer" }}
+                      />
+                      <span style={{ fontSize: "0.8125rem", color: "#334155", lineHeight: 1.4 }}>
+                        <strong>Remove approval permission from previous team lead</strong>
+                        <span style={{ display: "block", fontSize: "0.725rem", color: "#64748b" }}>
+                          Revokes the team leave approval permission from the outgoing lead and demotes them to employee if they lead no other teams.
+                        </span>
+                      </span>
+                    </label>
+
+                    <div
+                      style={{
+                        padding: "0.65rem 0.85rem",
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: "6px",
+                        fontSize: "0.75rem",
+                        color: "#166534",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "0.45rem",
+                      }}
+                    >
+                      <CheckCircle2 size={15} style={{ flexShrink: 0, marginTop: "1px" }} />
+                      <span>
+                        Upon confirmation, <strong>{roleModal.user.name}</strong> will be promoted to <strong>Team Lead</strong> and automatically granted the configured leave approval permission for this team.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={handleCloseRoleModal}
+                      disabled={roleModal.isSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="primary-btn"
+                      disabled={roleModal.isSubmitting}
+                    >
+                      {roleModal.isSubmitting ? "Promoting..." : "Confirm Promotion to Team Lead"}
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <>
+                <div className="modal-header" style={{ background: "#fef3c7", borderBottomColor: "#fde68a" }}>
+                  <div>
+                    <h2 style={{ color: "#92400e", display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                      <AlertTriangle size={18} className="text-amber" />
+                      <span>Demote Team Lead to Employee</span>
+                    </h2>
+                  </div>
+                  <button className="modal-close-btn" onClick={handleCloseRoleModal}>
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleConfirmRoleChange}>
+                  <div className="modal-body" style={{ gap: "0.85rem" }}>
+                    {roleModal.error && (
+                      <div className="form-error-alert" style={{ margin: 0 }}>
+                        <AlertCircle size={16} />
+                        <span>{roleModal.error}</span>
+                      </div>
+                    )}
+
+                    <p style={{ fontSize: "0.875rem", color: "#0f172a", margin: 0, lineHeight: 1.5 }}>
+                      Are you sure you want to demote <strong>{roleModal.user.name}</strong> back to <strong>Employee</strong>?
+                    </p>
+
+                    <div
+                      style={{
+                        padding: "0.75rem 0.95rem",
+                        background: "#fffbeb",
+                        border: "1px solid #fde68a",
+                        borderRadius: "6px",
+                        fontSize: "0.8125rem",
+                        color: "#78350f",
+                      }}
+                    >
+                      <ul style={{ margin: 0, paddingLeft: "1.2rem", lineHeight: 1.5 }}>
+                        <li>Their Team Lead status will be removed from all led teams.</li>
+                        <li>Configured team leave approval permissions will be revoked.</li>
+                        <li><strong>Historical leave records and approvals are safely preserved.</strong></li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={handleCloseRoleModal}
+                      disabled={roleModal.isSubmitting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="admin-reject-btn"
+                      disabled={roleModal.isSubmitting}
+                      style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
+                    >
+                      {roleModal.isSubmitting ? "Demoting..." : "Yes, Demote to Employee"}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}
     </div>
   );
 };
+

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText,
@@ -8,17 +8,17 @@ import {
   BookOpen,
   User,
   AlertTriangle,
+  Search,
+  X,
+  ChevronDown,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
-import { applyLeave as submitLeaveApi, DEMO_USERS } from "../services/api";
+import {
+  applyLeave as submitLeaveApi,
+  getSubstituteEmployees,
+  DEMO_USERS,
+} from "../services/api";
 import { calculateInclusiveDays, formatDateOnly } from "../utils/dateUtils";
-
-const DEMO_SUBSTITUTE_OPTIONS = [
-  { id: "a0000000-0000-0000-0000-000000000002", name: "Alex Morgan", role: "Senior Frontend Engineer", team: "Engineering" },
-  { id: "a0000000-0000-0000-0000-000000000003", name: "Michael Chen", role: "Fullstack Developer", team: "Engineering" },
-  { id: "a0000000-0000-0000-0000-000000000004", name: "Sarah Johnson", role: "Sales Representative", team: "Sales" },
-  { id: "a0000000-0000-0000-0000-000000000001", name: "Priya Fernando", role: "Engineering Lead & Manager", team: "Engineering" },
-];
 
 export const ApplyLeavePage = () => {
   const navigate = useNavigate();
@@ -34,6 +34,13 @@ export const ApplyLeavePage = () => {
   const [permissionHours, setPermissionHours] = useState("1 hour");
   const [reason, setReason] = useState("");
   const [substituteId, setSubstituteId] = useState("");
+  const [selectedSubstitute, setSelectedSubstitute] = useState(null);
+  const [substituteSearch, setSubstituteSearch] = useState("");
+  const [substitutesList, setSubstitutesList] = useState([]);
+  const [loadingSubstitutes, setLoadingSubstitutes] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const [assignedWork, setAssignedWork] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -43,10 +50,75 @@ export const ApplyLeavePage = () => {
 
   const isTimePermission = leaveType === "Time Permission";
 
-  // Build substitute list: all team members except current applicant & superior admin
-  const availableSubstitutes = DEMO_SUBSTITUTE_OPTIONS.filter(
-    (u) => u.id !== applicant.id
-  );
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Fetch eligible active substitutes excluding self from backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSubstitutes = async () => {
+      try {
+        setLoadingSubstitutes(true);
+        const res = await getSubstituteEmployees(applicant?.id, substituteSearch);
+        if (isMounted) {
+          setSubstitutesList(res.data || []);
+        }
+      } catch (err) {
+        console.error("Failed to load substitute employees:", err);
+      } finally {
+        if (isMounted) {
+          setLoadingSubstitutes(false);
+        }
+      }
+    };
+
+    const timer = setTimeout(() => {
+      fetchSubstitutes();
+    }, 200);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [applicant?.id, substituteSearch]);
+
+  // Client-side search filtering across multiple fields
+  const filteredSubstitutes = substitutesList.filter((emp) => {
+    if (emp.id === applicant?.id) return false;
+    if (!substituteSearch.trim()) return true;
+    const q = substituteSearch.toLowerCase();
+    const matchName = emp.name?.toLowerCase().includes(q);
+    const matchUsername = emp.username?.toLowerCase().includes(q);
+    const matchEmail = emp.email?.toLowerCase().includes(q);
+    const matchTeam = emp.team_name?.toLowerCase().includes(q);
+    const matchDept = emp.department?.toLowerCase().includes(q);
+    const matchDesig = emp.designation?.toLowerCase().includes(q);
+    return matchName || matchUsername || matchEmail || matchTeam || matchDept || matchDesig;
+  });
+
+  const handleSelectSubstitute = (emp) => {
+    setSubstituteId(emp.id);
+    setSelectedSubstitute(emp);
+    setSubstituteSearch("");
+    setIsDropdownOpen(false);
+  };
+
+  const handleClearSubstitute = () => {
+    setSubstituteId("");
+    setSelectedSubstitute(null);
+    setSubstituteSearch("");
+    setIsDropdownOpen(false);
+  };
 
   const daysCount = isTimePermission ? null : calculateInclusiveDays(startDate, endDate, leaveType);
 
@@ -64,6 +136,10 @@ export const ApplyLeavePage = () => {
     }
 
     if (!reason.trim()) { setErrorMsg("Please provide a reason for the leave application."); return; }
+    if (!substituteId) {
+      setErrorMsg("Please select a substitute employee.");
+      return;
+    }
     if (substituteId && (!assignedWork || !assignedWork.trim())) {
       setErrorMsg("Please describe the work assigned to your substitute.");
       return;
@@ -348,20 +424,89 @@ export const ApplyLeavePage = () => {
               <label htmlFor="substitute" className="form-label required">
                 Substitute Employee
               </label>
-              <select
-                id="substitute"
-                className="form-select"
-                value={substituteId}
-                onChange={(e) => setSubstituteId(e.target.value)}
-                required
-              >
-                <option value="">-- Choose a colleague as substitute --</option>
-                {availableSubstitutes.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name} ({emp.role} - {emp.team})
-                  </option>
-                ))}
-              </select>
+
+              <div className="substitute-selector-container" ref={dropdownRef}>
+                {selectedSubstitute ? (
+                  <div className="substitute-selected-card">
+                    <div className="substitute-selected-avatar">
+                      {(selectedSubstitute.name || "EM").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="substitute-selected-info">
+                      <span className="substitute-selected-name">{selectedSubstitute.name}</span>
+                      <span className="substitute-selected-meta">
+                        {selectedSubstitute.team_name || selectedSubstitute.department || "Office"}
+                        {selectedSubstitute.designation ? ` • ${selectedSubstitute.designation}` : ""}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="substitute-clear-btn"
+                      onClick={handleClearSubstitute}
+                      title="Clear selected substitute"
+                      aria-label="Clear selected substitute"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="substitute-search-box">
+                    <div className="substitute-input-wrapper">
+                      <Search size={16} className="substitute-search-icon" />
+                      <input
+                        type="text"
+                        id="substitute"
+                        className="substitute-search-input"
+                        placeholder="Search substitute employee..."
+                        value={substituteSearch}
+                        onChange={(e) => {
+                          setSubstituteSearch(e.target.value);
+                          setIsDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsDropdownOpen(true)}
+                        autoComplete="off"
+                      />
+                      <ChevronDown
+                        size={16}
+                        className={`substitute-chevron-icon ${isDropdownOpen ? "open" : ""}`}
+                      />
+                    </div>
+
+                    {isDropdownOpen && (
+                      <div className="substitute-dropdown-menu">
+                        {loadingSubstitutes && filteredSubstitutes.length === 0 ? (
+                          <div className="substitute-empty-state">
+                            Loading employees...
+                          </div>
+                        ) : filteredSubstitutes.length === 0 ? (
+                          <div className="substitute-empty-state">
+                            No employees found
+                          </div>
+                        ) : (
+                          filteredSubstitutes.map((emp) => (
+                            <div
+                              key={emp.id}
+                              className={`substitute-option-row ${substituteId === emp.id ? "active" : ""}`}
+                              onClick={() => handleSelectSubstitute(emp)}
+                            >
+                              <div className="substitute-avatar">
+                                {(emp.name || "EM").slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="substitute-option-info">
+                                <span className="substitute-option-name">{emp.name}</span>
+                                <span className="substitute-option-meta">
+                                  {emp.team_name || emp.department || "Office"}
+                                  {emp.designation ? ` • ${emp.designation}` : ""}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <span className="form-hint">
                 The chosen substitute must accept the delegation before team lead approval.
               </span>
