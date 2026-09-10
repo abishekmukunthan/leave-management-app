@@ -14,7 +14,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
-import { clearStoredUser, isTeamAdmin, isSuperiorAdmin, canApproveLeaves } from "../services/auth";
+import { logoutUser, isTeamAdmin, isSuperiorAdmin, canApproveLeaves } from "../services/auth";
 
 export const Navbar = () => {
   const { loggedInUser, currentUser } = useLeave();
@@ -32,7 +32,7 @@ export const Navbar = () => {
   const isNormalEmployee = !userIsSuperiorAdmin && !userIsTeamAdmin;
 
   const handleSignOut = () => {
-    clearStoredUser();
+    logoutUser({ broadcast: true });
     navigate("/login");
   };
 

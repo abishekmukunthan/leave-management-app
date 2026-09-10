@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShieldCheck, Eye, EyeOff, Lock, AlertCircle, LogOut, ArrowRight } from "lucide-react";
-import { getStoredUser, updateStoredUser, clearStoredUser } from "../services/auth";
+import { getStoredUser, updateStoredUser, logoutUser } from "../services/auth";
 import { changePassword as changePasswordApi } from "../services/api";
 import { useLeave } from "../context/useLeave";
 
@@ -22,7 +22,7 @@ export const ChangePasswordPage = () => {
   const [errorMsg, setErrorMsg] = useState("");
 
   const handleSignOut = () => {
-    clearStoredUser();
+    logoutUser({ broadcast: true });
     navigate("/login", { replace: true });
   };
 

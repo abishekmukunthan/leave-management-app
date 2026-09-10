@@ -8,6 +8,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import superiorRoutes from "./routes/superiorRoutes.js";
 import permissionRoutes from "./routes/permissionRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
+import { authenticateToken } from "./middleware/authMiddleware.js";
 
 const app = express();
 
@@ -68,8 +69,13 @@ app.get("/db-test", async (req, res) => {
   }
 });
 
-// Mount API routes
+// Mount public API routes
 app.use("/api/auth", authRoutes);
+
+// Apply authentication middleware to all protected API routes
+app.use("/api", authenticateToken);
+
+// Mount protected API routes
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/substitute-requests", substituteRoutes);
 app.use("/api/admin", adminRoutes);

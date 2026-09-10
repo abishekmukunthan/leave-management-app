@@ -1,4 +1,4 @@
-import { getToken } from "./auth";
+import { getToken, logoutUser } from "./auth";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
@@ -83,6 +83,23 @@ const fetchJson = async (endpoint, options = {}) => {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (response.status === 401 && !endpoint.includes("/api/auth/login")) {
+      logoutUser({ broadcast: true });
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem(
+            "leaveease_session_expired_message",
+            data.message || data.error || "Your session has expired or is no longer valid. Please sign in again."
+          );
+        } catch {
+          // Ignore
+        }
+        if (window.location.pathname !== "/login") {
+          window.location.replace("/login");
+        }
+      }
+    }
+
     const errorMessage =
       data.error || data.message || `Request failed with status ${response.status}`;
     const error = new Error(errorMessage);
@@ -478,6 +495,22 @@ const triggerBrowserDownload = async (endpoint, defaultFilename) => {
   const response = await fetch(url, { headers });
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      logoutUser({ broadcast: true });
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem(
+            "leaveease_session_expired_message",
+            errorData.message || errorData.error || "Your session has expired or is no longer valid. Please sign in again."
+          );
+        } catch {
+          // Ignore
+        }
+        if (window.location.pathname !== "/login") {
+          window.location.replace("/login");
+        }
+      }
+    }
     throw new Error(errorData.error || errorData.message || "Failed to download report");
   }
 

@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { LeaveProvider } from "./context/LeaveContext";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
@@ -14,28 +15,88 @@ import { ReportsPage } from "./pages/ReportsPage";
 import { EmployeeProfilePage } from "./pages/EmployeeProfilePage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
-import { getStoredUser, isTeamAdmin, isSuperiorAdmin, canApproveLeaves } from "./services/auth";
+import {
+  getValidatedAuth,
+  LOGOUT_EVENT_KEY,
+  TOKEN_STORAGE_KEY,
+  clearStoredUser,
+  isTeamAdmin,
+  isSuperiorAdmin,
+  canApproveLeaves,
+} from "./services/auth";
 import "./App.css";
 
-// Redirects to /login if no user is stored in localStorage, or to /change-password if forced password change is active
+// Multi-tab logout listener: automatically syncs logout across all open browser tabs
+const MultiTabSyncListener = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (
+        e.key === LOGOUT_EVENT_KEY ||
+        (e.key === TOKEN_STORAGE_KEY && !e.newValue)
+      ) {
+        clearStoredUser();
+        navigate("/login", {
+          replace: true,
+          state: { message: "You have been logged out from another session/tab." },
+        });
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [navigate]);
+
+  return null;
+};
+
+// Redirects to /login if token/user is invalid or expired, or to /change-password if forced password change is active
 const RequireAuth = ({ children }) => {
-  const user = getStoredUser();
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.must_change_password) return <Navigate to="/change-password" replace />;
+  const auth = getValidatedAuth();
+  if (!auth.isValid) {
+    return (
+      <Navigate
+        to="/login"
+        state={auth.message ? { message: auth.message } : undefined}
+        replace
+      />
+    );
+  }
+  if (auth.user.must_change_password) {
+    return <Navigate to="/change-password" replace />;
+  }
   return children;
 };
 
 // Route guard for Change Password page
 const RequireChangePasswordAuth = ({ children }) => {
-  const user = getStoredUser();
-  if (!user) return <Navigate to="/login" replace />;
+  const auth = getValidatedAuth();
+  if (!auth.isValid) {
+    return (
+      <Navigate
+        to="/login"
+        state={auth.message ? { message: auth.message } : undefined}
+        replace
+      />
+    );
+  }
   return children;
 };
 
 // Route guard for Team Approvals (allows team_admin and any user authorized to approve leaves)
 const RequireTeamAdmin = ({ children }) => {
-  const user = getStoredUser();
-  if (!user) return <Navigate to="/login" replace />;
+  const auth = getValidatedAuth();
+  if (!auth.isValid) {
+    return (
+      <Navigate
+        to="/login"
+        state={auth.message ? { message: auth.message } : undefined}
+        replace
+      />
+    );
+  }
+  const { user } = auth;
   if (user.must_change_password) return <Navigate to="/change-password" replace />;
   if (isSuperiorAdmin(user)) return <Navigate to="/superior" replace />;
   if (!canApproveLeaves(user)) return <Navigate to="/" replace />;
@@ -44,8 +105,17 @@ const RequireTeamAdmin = ({ children }) => {
 
 // Route guard for Superior Admin Dashboard (allows superior_admin only)
 const RequireSuperiorAdmin = ({ children }) => {
-  const user = getStoredUser();
-  if (!user) return <Navigate to="/login" replace />;
+  const auth = getValidatedAuth();
+  if (!auth.isValid) {
+    return (
+      <Navigate
+        to="/login"
+        state={auth.message ? { message: auth.message } : undefined}
+        replace
+      />
+    );
+  }
+  const { user } = auth;
   if (user.must_change_password) return <Navigate to="/change-password" replace />;
   if (!isSuperiorAdmin(user)) {
     return isTeamAdmin(user) ? <Navigate to="/admin" replace /> : <Navigate to="/" replace />;
@@ -55,8 +125,17 @@ const RequireSuperiorAdmin = ({ children }) => {
 
 // Route guard to prevent Superior Admin from accessing operational employee pages
 const RequireNonSuperior = ({ children }) => {
-  const user = getStoredUser();
-  if (!user) return <Navigate to="/login" replace />;
+  const auth = getValidatedAuth();
+  if (!auth.isValid) {
+    return (
+      <Navigate
+        to="/login"
+        state={auth.message ? { message: auth.message } : undefined}
+        replace
+      />
+    );
+  }
+  const { user } = auth;
   if (user.must_change_password) return <Navigate to="/change-password" replace />;
   if (isSuperiorAdmin(user)) return <Navigate to="/superior" replace />;
   return children;
@@ -64,8 +143,10 @@ const RequireNonSuperior = ({ children }) => {
 
 // Index route router: directs superior admin to /superior, others to standard dashboard
 const DashboardIndex = () => {
-  const user = getStoredUser();
-  if (isSuperiorAdmin(user)) return <Navigate to="/superior" replace />;
+  const auth = getValidatedAuth();
+  if (!auth.isValid || isSuperiorAdmin(auth.user)) {
+    return <Navigate to="/superior" replace />;
+  }
   return <EmployeeDashboard />;
 };
 
@@ -73,6 +154,7 @@ function App() {
   return (
     <LeaveProvider>
       <BrowserRouter>
+        <MultiTabSyncListener />
         <Routes>
           {/* Public Login Route */}
           <Route path="/login" element={<LoginPage />} />
