@@ -216,4 +216,28 @@ export const leaveController = {
       });
     }
   },
+
+  // GET /api/leaves/substitute-employees?employee_id=USER_ID&search=SEARCH_TEXT
+  async getSubstituteEmployees(req, res) {
+    try {
+      const { employee_id, search, limit } = req.query;
+
+      const employees = await leaveDao.getSubstituteEmployees({
+        employee_id,
+        search,
+        limit,
+      });
+
+      return res.status(200).json({
+        count: employees.length,
+        data: employees,
+      });
+    } catch (error) {
+      console.error("Error fetching substitute employees:", error);
+      return res.status(500).json({
+        error: "Failed to fetch substitute employees",
+        details: error.message,
+      });
+    }
+  },
 };

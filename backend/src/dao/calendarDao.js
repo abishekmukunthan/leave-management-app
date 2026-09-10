@@ -145,6 +145,7 @@ export const calendarDao = {
         lr.employee_id,
         u.name AS employee_name,
         u.team_id,
+        COALESCE(NULLIF(TRIM(ep.department), ''), t.name, 'Unassigned') AS department_name,
         COALESCE(t.name, 'Unassigned') AS team_name,
         lr.leave_type,
         lr.start_date::text AS start_date,
@@ -155,6 +156,7 @@ export const calendarDao = {
         sr.assigned_work
       FROM leave_requests lr
       JOIN users u ON lr.employee_id = u.id
+      LEFT JOIN employee_profiles ep ON ep.user_id = u.id
       LEFT JOIN teams t ON u.team_id = t.id
       LEFT JOIN users app_u ON lr.approved_by = app_u.id
       LEFT JOIN substitute_requests sr ON lr.id = sr.leave_request_id
@@ -180,6 +182,7 @@ export const calendarDao = {
         lr.employee_id,
         u.name AS employee_name,
         u.team_id,
+        COALESCE(NULLIF(TRIM(ep.department), ''), t.name, 'Unassigned') AS department_name,
         COALESCE(t.name, 'Unassigned') AS team_name,
         lr.leave_type,
         lr.permission_date::text AS permission_date,
@@ -190,6 +193,7 @@ export const calendarDao = {
         sr.assigned_work
       FROM leave_requests lr
       JOIN users u ON lr.employee_id = u.id
+      LEFT JOIN employee_profiles ep ON ep.user_id = u.id
       LEFT JOIN teams t ON u.team_id = t.id
       LEFT JOIN users app_u ON lr.approved_by = app_u.id
       LEFT JOIN substitute_requests sr ON lr.id = sr.leave_request_id
@@ -208,7 +212,43 @@ export const calendarDao = {
     const permRes = await pool.query(permQuery, permParams);
     const timePerms = permRes.rows;
 
-    // Format peopleOnLeave list (detailed records)
+    // Build unified records array for date details modal
+    const leaveRecords = normalLeaves.map((l) => ({
+      id: l.id,
+      employee_name: l.employee_name,
+      department_name: l.department_name || l.team_name || "Unassigned",
+      record_type: "Leave",
+      substitute_name: l.substitute_name || "Not assigned",
+      leave_type: l.leave_type,
+      assigned_work: l.assigned_work || "No assigned work",
+      start_date: l.start_date || null,
+      end_date: l.end_date || null,
+      permission_date: null,
+      permission_hours: null,
+    }));
+
+    const permRecords = timePerms.map((p) => ({
+      id: p.id,
+      employee_name: p.employee_name,
+      department_name: p.department_name || p.team_name || "Unassigned",
+      record_type: "Time Permission",
+      substitute_name: p.substitute_name || "Not assigned",
+      leave_type: p.leave_type || "Time Permission",
+      assigned_work: p.assigned_work || "No assigned work",
+      start_date: null,
+      end_date: null,
+      permission_date: p.permission_date || null,
+      permission_hours: p.permission_hours != null ? Number(p.permission_hours) : null,
+    }));
+
+    const records = [...leaveRecords, ...permRecords].sort((a, b) =>
+      a.employee_name.localeCompare(b.employee_name)
+    );
+
+    // Total Leave on this day: strictly count normal leave records, EXCLUDING Time Permission
+    const totalLeaveCount = normalLeaves.length;
+
+    // Legacy format peopleOnLeave list (for backward compatibility if needed)
     const peopleOnLeave = normalLeaves.map((l) => {
       let duration = "1 day";
       if (l.leave_type === "Half Day Leave") {
@@ -231,7 +271,7 @@ export const calendarDao = {
       };
     });
 
-    // Format timePermissions list (detailed records)
+    // Legacy format timePermissions list (for backward compatibility if needed)
     const timePermissions = timePerms.map((p) => ({
       employee_name: p.employee_name,
       team_name: p.team_name,
@@ -276,6 +316,8 @@ export const calendarDao = {
 
     return {
       date,
+      totalLeaveCount,
+      records,
       summary: {
         totalEmployees,
         availableEmployees,

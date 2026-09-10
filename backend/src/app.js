@@ -6,12 +6,43 @@ import leaveRoutes from "./routes/leaveRoutes.js";
 import substituteRoutes from "./routes/substituteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import superiorRoutes from "./routes/superiorRoutes.js";
+import permissionRoutes from "./routes/permissionRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// CORS Configuration
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+];
+
+const getAllowedOrigins = () => {
+  const origins = [...defaultAllowedOrigins];
+  if (process.env.FRONTEND_URL) {
+    const configured = process.env.FRONTEND_URL.trim().replace(/\/+$/, "");
+    if (configured && !origins.includes(configured)) {
+      origins.push(configured);
+    }
+  }
+  return origins;
+};
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server, vitest)
+      if (!origin) return callback(null, true);
+
+      const allowed = getAllowedOrigins();
+      if (allowed.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Health check route
@@ -43,6 +74,7 @@ app.use("/api/leaves", leaveRoutes);
 app.use("/api/substitute-requests", substituteRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/superior", superiorRoutes);
+app.use("/api/superior/permissions", permissionRoutes);
 app.use("/api/calendar", calendarRoutes);
 
 // 404 Handler

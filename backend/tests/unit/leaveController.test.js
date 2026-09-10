@@ -116,3 +116,46 @@ describe("POST /api/leaves - Apply Leave Controller", () => {
     expect(res.body.data.id).toBe("leave-999");
   });
 });
+
+describe("GET /api/leaves/substitute-employees", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should return substitute employees excluding requesting employee", async () => {
+    vi.spyOn(leaveDao, "getSubstituteEmployees").mockResolvedValue([
+      {
+        id: "emp-2",
+        name: "Michael Chen",
+        username: "michael.chen",
+        email: "michael.chen@company.com",
+        role: "employee",
+        team_name: "Engineering",
+        department: "Engineering",
+        designation: "Fullstack Developer",
+      },
+    ]);
+
+    const res = await request(app)
+      .get("/api/leaves/substitute-employees")
+      .query({ employee_id: "emp-1", search: "mich" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.count).toBe(1);
+    expect(res.body.data[0].name).toBe("Michael Chen");
+    expect(leaveDao.getSubstituteEmployees).toHaveBeenCalledWith({
+      employee_id: "emp-1",
+      search: "mich",
+      limit: undefined,
+    });
+  });
+
+  it("should handle error gracefully and return 500", async () => {
+    vi.spyOn(leaveDao, "getSubstituteEmployees").mockRejectedValue(new Error("Database error"));
+
+    const res = await request(app).get("/api/leaves/substitute-employees");
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("Failed to fetch substitute employees");
+  });
+});

@@ -41,35 +41,55 @@ describe("Team Admin Controller (/api/admin)", () => {
       expect(res.body.error).toContain("waiting for substitute approval");
     });
 
-    it("should return 403 if approving user is a superior_admin", async () => {
+    it("should return 403 if approving user lacks the required approval permission", async () => {
       vi.spyOn(adminDao, "getLeaveRequestById").mockResolvedValue({
         id: "leave-123",
         status: "Waiting for Admin Approval",
         employee_team_id: "team-eng",
       });
-      vi.spyOn(adminDao, "getUserById").mockResolvedValue({
-        id: "sup-001",
-        role: "superior_admin",
+      vi.spyOn(adminDao, "checkUserHasTeamApprovalPermission").mockResolvedValue({
+        hasPermission: false,
+        requiredPermission: "ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION",
       });
 
       const res = await request(app)
         .put("/api/admin/leave-requests/leave-123/approve")
-        .send({ approved_by: "sup-001" });
+        .send({ approved_by: "user-without-perm" });
 
       expect(res.status).toBe(403);
-      expect(res.body.error).toContain("Superior admin can monitor but team admin must approve");
+      expect(res.body.message).toBe("You do not have permission to approve leave for this team.");
+      expect(res.body.requiredPermission).toBe("ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION");
     });
 
-    it("should approve leave request successfully and return 200 for valid team_admin", async () => {
+    it("should return 403 if team has no approval permission mapping configured", async () => {
+      vi.spyOn(adminDao, "getLeaveRequestById").mockResolvedValue({
+        id: "leave-123",
+        status: "Waiting for Admin Approval",
+        employee_team_id: "team-unmapped",
+      });
+      vi.spyOn(adminDao, "checkUserHasTeamApprovalPermission").mockResolvedValue({
+        hasPermission: false,
+        requiredPermission: null,
+        notConfigured: true,
+      });
+
+      const res = await request(app)
+        .put("/api/admin/leave-requests/leave-123/approve")
+        .send({ approved_by: "any-user" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toBe("Approval permission is not configured for this team.");
+    });
+
+    it("should approve leave request successfully and return 200 for user with required permission", async () => {
       vi.spyOn(adminDao, "getLeaveRequestById").mockResolvedValue({
         id: "leave-123",
         status: "Waiting for Admin Approval",
         employee_team_id: "team-eng",
       });
-      vi.spyOn(adminDao, "getUserById").mockResolvedValue({
-        id: "admin-456",
-        role: "team_admin",
-        team_id: "team-eng",
+      vi.spyOn(adminDao, "checkUserHasTeamApprovalPermission").mockResolvedValue({
+        hasPermission: true,
+        requiredPermission: "ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION",
       });
       vi.spyOn(adminDao, "approveLeaveRequest").mockResolvedValue({
         id: "leave-123",
@@ -99,16 +119,55 @@ describe("Team Admin Controller (/api/admin)", () => {
       expect(res.body.error).toBe("Leave request not found");
     });
 
-    it("should reject leave request and return 200", async () => {
+    it("should return 403 if rejecting user lacks the required approval permission", async () => {
       vi.spyOn(adminDao, "getLeaveRequestById").mockResolvedValue({
         id: "leave-123",
         status: "Waiting for Admin Approval",
         employee_team_id: "team-eng",
       });
-      vi.spyOn(adminDao, "getUserById").mockResolvedValue({
-        id: "admin-456",
-        role: "team_admin",
-        team_id: "team-eng",
+      vi.spyOn(adminDao, "checkUserHasTeamApprovalPermission").mockResolvedValue({
+        hasPermission: false,
+        requiredPermission: "ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION",
+      });
+
+      const res = await request(app)
+        .put("/api/admin/leave-requests/leave-123/reject")
+        .send({ rejected_by: "user-without-perm", admin_remarks: "High workload period" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toBe("You do not have permission to approve leave for this team.");
+      expect(res.body.requiredPermission).toBe("ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION");
+    });
+
+    it("should return 403 if team has no approval permission mapping configured on reject", async () => {
+      vi.spyOn(adminDao, "getLeaveRequestById").mockResolvedValue({
+        id: "leave-123",
+        status: "Waiting for Admin Approval",
+        employee_team_id: "team-unmapped",
+      });
+      vi.spyOn(adminDao, "checkUserHasTeamApprovalPermission").mockResolvedValue({
+        hasPermission: false,
+        requiredPermission: null,
+        notConfigured: true,
+      });
+
+      const res = await request(app)
+        .put("/api/admin/leave-requests/leave-123/reject")
+        .send({ rejected_by: "any-user", admin_remarks: "High workload" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toBe("Approval permission is not configured for this team.");
+    });
+
+    it("should reject leave request and return 200 for user with required permission", async () => {
+      vi.spyOn(adminDao, "getLeaveRequestById").mockResolvedValue({
+        id: "leave-123",
+        status: "Waiting for Admin Approval",
+        employee_team_id: "team-eng",
+      });
+      vi.spyOn(adminDao, "checkUserHasTeamApprovalPermission").mockResolvedValue({
+        hasPermission: true,
+        requiredPermission: "ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION",
       });
       vi.spyOn(adminDao, "rejectLeaveRequest").mockResolvedValue({
         id: "leave-123",

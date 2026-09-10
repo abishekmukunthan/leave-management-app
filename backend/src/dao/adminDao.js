@@ -1,25 +1,28 @@
 import pool from "../config/db.js";
 
 export const adminDao = {
-  // Fetch leave requests for admin dashboard (filtered by team if admin_id is a team_admin)
+  // Fetch leave requests for admin dashboard based on teams user has approval permission for
   async getAllLeaveRequests(admin_id = null) {
-    let teamIdFilter = null;
+    let allowedTeamIds = null;
+    let noPermissions = false;
 
     if (admin_id) {
-      const userRes = await pool.query(
-        `SELECT u.id, u.role, u.team_id, t.id AS managed_team_id 
-         FROM users u 
-         LEFT JOIN teams t ON t.team_admin_id = u.id 
-         WHERE u.id = $1`,
+      // Find all team IDs for which this user has the required approval permission
+      const teamsRes = await pool.query(
+        `SELECT DISTINCT tap.team_id
+         FROM team_approval_permissions tap
+         JOIN user_permissions up ON tap.permission_id = up.permission_id
+         JOIN permissions p ON p.id = up.permission_id
+         WHERE up.user_id = $1 AND p.is_active = true`,
         [admin_id]
       );
 
-      if (userRes.rows.length > 0) {
-        const user = userRes.rows[0];
-        if (user.role === "team_admin") {
-          teamIdFilter = user.managed_team_id || user.team_id;
-        }
+      if (teamsRes.rows.length === 0) {
+        // User has no active leave approval permissions
+        return { noPermissions: true, rows: [] };
       }
+
+      allowedTeamIds = teamsRes.rows.map((r) => r.team_id);
     }
 
     let query = `
@@ -30,6 +33,7 @@ export const adminDao = {
         u.email AS employee_email,
         u.team_id,
         t.name AS team_name,
+        tap.permission_id AS approval_permission_id,
         ep.employee_id AS employee_code,
         ep.designation AS employee_designation,
         ep.department AS employee_department,
@@ -64,6 +68,7 @@ export const adminDao = {
       FROM leave_requests lr
       JOIN users u ON lr.employee_id = u.id
       LEFT JOIN teams t ON u.team_id = t.id
+      LEFT JOIN team_approval_permissions tap ON u.team_id = tap.team_id
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
       LEFT JOIN substitute_requests sr ON lr.id = sr.leave_request_id
       LEFT JOIN users sub_u ON sr.substitute_employee_id = sub_u.id
@@ -71,27 +76,84 @@ export const adminDao = {
     `;
 
     const params = [];
-    if (teamIdFilter) {
-      query += ` WHERE u.team_id = $1`;
-      params.push(teamIdFilter);
+    const conditions = [];
+
+    if (allowedTeamIds && allowedTeamIds.length > 0) {
+      params.push(allowedTeamIds);
+      conditions.push(`u.team_id = ANY($${params.length}::uuid[])`);
+    }
+
+    if (admin_id) {
+      params.push(admin_id);
+      conditions.push(`lr.employee_id != $${params.length}`);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(" AND ");
     }
 
     query += ` ORDER BY lr.created_at DESC;`;
 
     const result = await pool.query(query, params);
-    return result.rows;
+    return { noPermissions: false, rows: result.rows };
   },
 
-  // Fetch leave request with employee team info by ID
+  // Get required permission ID for a team
+  async getRequiredTeamApprovalPermission(teamId) {
+    if (!teamId) return null;
+    const query = `
+      SELECT tap.permission_id
+      FROM team_approval_permissions tap
+      JOIN permissions p ON tap.permission_id = p.id
+      WHERE tap.team_id = $1 AND p.is_active = true;
+    `;
+    const res = await pool.query(query, [teamId]);
+    return res.rows[0]?.permission_id || null;
+  },
+
+  // Check if a user has active approval permission for a team
+  async checkUserHasTeamApprovalPermission(userId, teamId) {
+    if (!teamId) {
+      return { hasPermission: false, requiredPermission: null, notConfigured: true };
+    }
+
+    // 1. Get required permission for team
+    const requiredPermission = await this.getRequiredTeamApprovalPermission(teamId);
+    if (!requiredPermission) {
+      return { hasPermission: false, requiredPermission: null, notConfigured: true };
+    }
+
+    if (!userId) {
+      return { hasPermission: false, requiredPermission, notConfigured: false };
+    }
+
+    // 2. Check if user has this permission
+    const query = `
+      SELECT up.id 
+      FROM user_permissions up
+      JOIN permissions p ON up.permission_id = p.id
+      WHERE up.user_id = $1 AND up.permission_id = $2 AND p.is_active = true;
+    `;
+    const res = await pool.query(query, [userId, requiredPermission]);
+    const hasPermission = res.rows.length > 0;
+    return { hasPermission, requiredPermission, notConfigured: false };
+  },
+
+  // Fetch leave request with employee team info and required permission by ID
   async getLeaveRequestById(id) {
     const query = `
       SELECT 
         lr.*,
         u.team_id AS employee_team_id,
         u.name AS employee_name,
-        u.email AS employee_email
+        u.email AS employee_email,
+        u.role AS employee_role,
+        t.name AS team_name,
+        tap.permission_id AS required_permission_id
       FROM leave_requests lr
       JOIN users u ON lr.employee_id = u.id
+      LEFT JOIN teams t ON u.team_id = t.id
+      LEFT JOIN team_approval_permissions tap ON u.team_id = tap.team_id
       WHERE lr.id = $1;
     `;
     const result = await pool.query(query, [id]);

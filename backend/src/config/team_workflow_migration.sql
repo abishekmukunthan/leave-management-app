@@ -59,11 +59,12 @@ SET role = 'employee',
 WHERE id = 'a0000000-0000-0000-0000-000000000004' OR email = 'sarah.johnson@company.com';
 
 -- 6. Insert or update Superior Admin: Nadia Perera
-INSERT INTO users (id, name, email, password, role, team_id, created_at, updated_at)
+INSERT INTO users (id, name, email, username, password, role, team_id, created_at, updated_at)
 VALUES (
     'a0000000-0000-0000-0000-000000000005',
     'Nadia Perera',
     'nadia.perera@company.com',
+    'nadia.perera',
     '$2a$10$CwTycUXWue0Thq9StjUM0uJ0mP.g2CqJ6uO9J5j/0ZqXW8jJjUfGy',
     'superior_admin',
     NULL,
@@ -71,7 +72,7 @@ VALUES (
     CURRENT_TIMESTAMP
 )
 ON CONFLICT (email) DO UPDATE 
-SET role = 'superior_admin', name = 'Nadia Perera', updated_at = CURRENT_TIMESTAMP;
+SET role = 'superior_admin', name = 'Nadia Perera', username = 'nadia.perera', updated_at = CURRENT_TIMESTAMP;
 
 -- Insert employee profile for Nadia Perera if not existing
 INSERT INTO employee_profiles (
@@ -112,4 +113,5 @@ ON CONFLICT (employee_id) DO NOTHING;
 UPDATE teams 
 SET team_admin_id = 'a0000000-0000-0000-0000-000000000001', 
     updated_at = CURRENT_TIMESTAMP 
-WHERE name = 'Engineering';
+WHERE name = 'Engineering'
+  AND EXISTS (SELECT 1 FROM users WHERE id = 'a0000000-0000-0000-0000-000000000001');

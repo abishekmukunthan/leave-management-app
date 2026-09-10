@@ -53,6 +53,7 @@ export const authController = {
 
       // Exclude password from returned user object
       const { password: _pwd, ...safeUserData } = user;
+      safeUserData.permissions = Array.isArray(user.permissions) ? user.permissions : [];
 
       return res.status(200).json({
         message: "Login successful",

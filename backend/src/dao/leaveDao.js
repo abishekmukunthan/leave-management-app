@@ -209,4 +209,52 @@ export const leaveDao = {
     const result = await pool.query(query, [employee_id, startDate, endDate]);
     return result.rows[0] || null;
   },
+
+  // Get active employees eligible to act as substitute
+  async getSubstituteEmployees({ employee_id = null, search = null, limit = 50 }) {
+    const conditions = ["u.is_active = true", "u.role != 'superior_admin'"];
+    const params = [];
+
+    if (employee_id) {
+      params.push(employee_id);
+      conditions.push(`u.id != $${params.length}`);
+    }
+
+    if (search && search.trim()) {
+      params.push(`%${search.trim()}%`);
+      const idx = params.length;
+      conditions.push(`(
+        u.name ILIKE $${idx} OR
+        u.username ILIKE $${idx} OR
+        u.email ILIKE $${idx} OR
+        t.name ILIKE $${idx} OR
+        ep.department ILIKE $${idx} OR
+        ep.designation ILIKE $${idx}
+      )`);
+    }
+
+    const maxLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+    params.push(maxLimit);
+
+    const query = `
+      SELECT 
+        u.id, 
+        u.name, 
+        u.username, 
+        u.email, 
+        u.role, 
+        t.name AS team_name, 
+        COALESCE(ep.department, t.name) AS department, 
+        ep.designation
+      FROM users u
+      LEFT JOIN teams t ON u.team_id = t.id
+      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY u.name ASC
+      LIMIT $${params.length};
+    `;
+
+    const result = await pool.query(query, params);
+    return result.rows;
+  },
 };
