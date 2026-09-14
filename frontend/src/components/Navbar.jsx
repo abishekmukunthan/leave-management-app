@@ -44,7 +44,7 @@ export const Navbar = () => {
           <CalendarCheck size={22} strokeWidth={2.5} />
         </div>
         <div className="brand-text">
-          <h2>LeaveEase</h2>
+          <h2>Arogya Leave</h2>
           <span>Leave Management</span>
         </div>
       </div>

@@ -32,7 +32,7 @@ export const Layout = () => {
       case "/profile":
         return "My Profile & Quotas";
       default:
-        return "LeaveEase Portal";
+        return "Arogya Leave Portal";
     }
   };
 

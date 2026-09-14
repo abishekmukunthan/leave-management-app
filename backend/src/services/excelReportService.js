@@ -3,7 +3,7 @@ import ExcelJS from "exceljs";
 export const excelReportService = {
   async generateLeaveSummaryWorkbook(reportData) {
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "LeaveEase Management System";
+    workbook.creator = "Arogya Leave Management System";
     workbook.created = new Date();
 
     const { metadata, summary, details, employee_summary, team_summary, exceptions } = reportData;

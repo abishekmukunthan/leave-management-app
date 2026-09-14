@@ -132,7 +132,7 @@ export const LoginPage = () => {
               margin: "0 0 0.25rem 0",
             }}
           >
-            LeaveEase
+            Arogya Leave
           </h1>
           <h2 style={{ fontSize: "1.125rem", fontWeight: 700, color: "#1e293b", margin: "0.5rem 0 0.25rem 0" }}>
             Sign In

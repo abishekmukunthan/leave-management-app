@@ -267,7 +267,7 @@ export const pdfReportService = {
           doc.switchToPage(i);
           drawDivider(doc.page.height - 30);
           doc.fillColor("#94A3B8").fontSize(7.5).font("Helvetica").text(
-            "LeaveEase Enterprise Management System  •  Confidential Superior Admin Report",
+            "Arogya Leave Enterprise Management System  •  Confidential Superior Admin Report",
             36,
             doc.page.height - 22,
             { width: doc.page.width / 2, align: "left" }
