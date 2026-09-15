@@ -309,6 +309,33 @@ describe("Superior Admin Team Member Management (/api/superior)", () => {
       expect(res.body.user.role).toBe("superior_admin");
       expect(res.body.user.team_id).toBe("team-exec");
     });
+    it("should allow adding employee who is Team In-charge of another team (Priyadharshini scenario)", async () => {
+      vi.spyOn(superiorDao, "addOrMoveTeamMember").mockResolvedValue({
+        success: true,
+        message: "Successfully added Priyadharshini to Executive Team.",
+        user: {
+          id: "user-priyadharshini",
+          name: "Priyadharshini",
+          email: "priyadharshini@company.com",
+          role: "employee",
+          team_id: "team-exec",
+          team_name: "Executive Team",
+        },
+        team_id: "team-exec",
+        team_name: "Executive Team",
+        member_count: 5,
+      });
+
+      const res = await request(app)
+        .put("/api/superior/teams/team-exec/members/user-priyadharshini")
+        .send({ confirm_move: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.user.role).toBe("employee");
+      expect(res.body.user.team_id).toBe("team-exec");
+      expect(res.body.team_name).toBe("Executive Team");
+    });
   });
 
   describe("DELETE /api/superior/teams/:id/members/:userId", () => {

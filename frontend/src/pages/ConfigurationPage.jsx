@@ -2293,6 +2293,11 @@ export const ConfigurationPage = () => {
                                   Superior Admin
                                 </span>
                               )}
+                              {c.leads_team_name && (
+                                <span style={{ marginLeft: "6px", fontSize: "0.6875rem", background: "#ede9fe", color: "#6d28d9", padding: "1px 5px", borderRadius: "3px", fontWeight: 600, border: "1px solid #ddd6fe" }}>
+                                  In-charge: {c.leads_team_name}
+                                </span>
+                              )}
                               <div style={{ marginTop: "2px" }}>
                                 {inThisTeam ? (
                                   <span style={{ fontSize: "0.6875rem", color: "#15803d", background: "#dcfce7", padding: "1px 5px", borderRadius: "3px" }}>

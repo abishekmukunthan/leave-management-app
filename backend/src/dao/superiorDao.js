@@ -746,8 +746,8 @@ export const superiorDao = {
             err.statusCode = 400;
             throw err;
           }
-          if (u.role !== "employee" && u.role !== "superior_admin") {
-            const err = new Error("Initial team members must be active employees or superior admins who are not assigned to any team.");
+          if (u.role !== "employee" && u.role !== "team_admin" && u.role !== "superior_admin") {
+            const err = new Error("Initial team members must be active employees, team leads, or superior admins who are not assigned to any team.");
             err.statusCode = 400;
             throw err;
           }
@@ -1713,7 +1713,7 @@ export const superiorDao = {
       FROM users u
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
       WHERE COALESCE(u.is_active, true) = true
-        AND u.role IN ('employee', 'superior_admin')
+        AND u.role IN ('employee', 'team_admin', 'superior_admin')
         AND u.team_id IS NULL
     `;
     const params = [];
@@ -1796,7 +1796,7 @@ export const superiorDao = {
         u.team_id AS current_team_id,
         t.name AS current_team_name,
         (SELECT id FROM teams WHERE team_admin_id = u.id LIMIT 1) AS leads_team_id,
-        (SELECT name FROM teams WHERE team_admin_id = u.id LIMIT 1) AS leads_team_name,
+        (SELECT string_agg(name, ', ' ORDER BY name) FROM teams WHERE team_admin_id = u.id) AS leads_team_name,
         ep.designation,
         ep.department,
         COALESCE(u.is_active, true) AS is_active
@@ -1847,6 +1847,8 @@ export const superiorDao = {
         current_team_name: u.current_team_name,
         designation: u.designation,
         department: u.department,
+        leads_team_id: u.leads_team_id,
+        leads_team_name: u.leads_team_name,
         is_active: u.is_active,
         is_already_member: isAlreadyMember,
         can_add,
