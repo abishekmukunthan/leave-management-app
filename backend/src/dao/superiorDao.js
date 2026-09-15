@@ -73,18 +73,23 @@ export const superiorDao = {
     const leavesRes = await pool.query(allLeavesQuery);
     const leaves = leavesRes.rows;
 
-    // B. Base Teams list with team admin & member counts
+    // B. Base Teams list with team admin & member counts (normal members + team in-charge, distinct)
     const teamsQuery = `
       SELECT 
         t.id AS team_id,
         t.name AS team_name,
         t.team_admin_id,
         admin_u.name AS team_admin_name,
-        COUNT(DISTINCT u.id) AS total_members
+        (
+          SELECT COUNT(DISTINCT person_id)
+          FROM (
+            SELECT u.id AS person_id FROM users u WHERE u.team_id = t.id AND COALESCE(u.is_active, true) = true
+            UNION
+            SELECT t.team_admin_id AS person_id WHERE t.team_admin_id IS NOT NULL
+          ) sub
+        ) AS total_members
       FROM teams t
       LEFT JOIN users admin_u ON t.team_admin_id = admin_u.id
-      LEFT JOIN users u ON u.team_id = t.id
-      GROUP BY t.id, t.name, t.team_admin_id, admin_u.name
       ORDER BY t.name ASC;
     `;
     const teamsRes = await pool.query(teamsQuery);
@@ -686,16 +691,28 @@ export const superiorDao = {
         COALESCE(t.is_active, true) AS is_active,
         tap.permission_id AS approval_permission_id,
         p.description AS approval_permission_description,
-        COUNT(DISTINCT u.id) AS total_members,
-        COUNT(DISTINCT u.id) AS member_count,
+        (
+          SELECT COUNT(DISTINCT person_id)::INTEGER
+          FROM (
+            SELECT u.id AS person_id FROM users u WHERE u.team_id = t.id AND COALESCE(u.is_active, true) = true
+            UNION
+            SELECT t.team_admin_id AS person_id WHERE t.team_admin_id IS NOT NULL
+          ) sub
+        ) AS total_members,
+        (
+          SELECT COUNT(DISTINCT person_id)::INTEGER
+          FROM (
+            SELECT u.id AS person_id FROM users u WHERE u.team_id = t.id AND COALESCE(u.is_active, true) = true
+            UNION
+            SELECT t.team_admin_id AS person_id WHERE t.team_admin_id IS NOT NULL
+          ) sub
+        ) AS member_count,
         t.created_at,
         t.updated_at
       FROM teams t
       LEFT JOIN users admin_u ON t.team_admin_id = admin_u.id
-      LEFT JOIN users u ON u.team_id = t.id
       LEFT JOIN team_approval_permissions tap ON t.id = tap.team_id
       LEFT JOIN permissions p ON tap.permission_id = p.id
-      GROUP BY t.id, t.name, t.team_admin_id, admin_u.name, admin_u.email, tap.permission_id, p.description
       ORDER BY t.name ASC;
     `;
     const res = await pool.query(query);
@@ -1939,9 +1956,14 @@ export const superiorDao = {
         [team.name, userId]
       );
 
-      // Fetch new team member count
+      // Fetch new team member count (normal members + team in-charge, distinct)
       const countRes = await client.query(
-        "SELECT COUNT(*)::INTEGER AS member_count FROM users WHERE team_id = $1",
+        `SELECT COUNT(DISTINCT person_id)::INTEGER AS member_count
+         FROM (
+           SELECT u.id AS person_id FROM users u WHERE u.team_id = $1 AND COALESCE(u.is_active, true) = true
+           UNION
+           SELECT t.team_admin_id AS person_id FROM teams t WHERE t.id = $1 AND t.team_admin_id IS NOT NULL
+         ) sub`,
         [teamId]
       );
       const memberCount = countRes.rows[0]?.member_count || 0;
@@ -2028,9 +2050,14 @@ export const superiorDao = {
         [resetTeamName, userId]
       );
 
-      // Fetch new team member count
+      // Fetch new team member count (normal members + team in-charge, distinct)
       const countRes = await client.query(
-        "SELECT COUNT(*)::INTEGER AS member_count FROM users WHERE team_id = $1",
+        `SELECT COUNT(DISTINCT person_id)::INTEGER AS member_count
+         FROM (
+           SELECT u.id AS person_id FROM users u WHERE u.team_id = $1 AND COALESCE(u.is_active, true) = true
+           UNION
+           SELECT t.team_admin_id AS person_id FROM teams t WHERE t.id = $1 AND t.team_admin_id IS NOT NULL
+         ) sub`,
         [teamId]
       );
       const memberCount = countRes.rows[0]?.member_count || 0;

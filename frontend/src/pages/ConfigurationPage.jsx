@@ -1986,8 +1986,18 @@ export const ConfigurationPage = () => {
         <div className="modal-backdrop" onClick={() => setEditTeamModalOpen(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "680px" }}>
             <div className="modal-header">
-              <div>
-                <h2>Edit Team: {editingTeam.name}</h2>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <h2 style={{ margin: 0 }}>Edit Team: {editingTeam.name}</h2>
+                {(() => {
+                  const hasInCharge = Boolean(editingTeam.team_admin_id);
+                  const isLeadInMembers = hasInCharge && teamMembers.some((m) => String(m.id) === String(editingTeam.team_admin_id));
+                  const totalDistinct = teamMembers.length + (hasInCharge && !isLeadInMembers ? 1 : 0);
+                  return (
+                    <span className="counter-pill pill-blue">
+                      {totalDistinct} {totalDistinct === 1 ? "Person" : "People"}
+                    </span>
+                  );
+                })()}
               </div>
               <button className="modal-close-btn" onClick={() => setEditTeamModalOpen(false)}>
                 <X size={18} />
@@ -2126,7 +2136,7 @@ export const ConfigurationPage = () => {
                     Section 3: Team Members
                   </h4>
                   <span className="counter-pill pill-blue">
-                    {teamMembers.length} {teamMembers.length === 1 ? "Member" : "Members"}
+                    {teamMembers.length} {teamMembers.length === 1 ? "Regular Member" : "Regular Members"}
                   </span>
                 </div>
 
