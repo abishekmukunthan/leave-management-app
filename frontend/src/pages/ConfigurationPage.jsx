@@ -1906,6 +1906,22 @@ export const ConfigurationPage = () => {
                               <span style={{ color: "#64748b", marginLeft: "6px", fontSize: "0.75rem" }}>
                                 {emp.email}
                               </span>
+                              {emp.role === "superior_admin" && (
+                                <span
+                                  style={{
+                                    marginLeft: "8px",
+                                    fontSize: "0.6875rem",
+                                    background: "#fce7f3",
+                                    color: "#be185d",
+                                    padding: "1px 6px",
+                                    borderRadius: "4px",
+                                    fontWeight: 600,
+                                    border: "1px solid #fbcfe8",
+                                  }}
+                                >
+                                  Superior Admin
+                                </span>
+                              )}
                               {emp.designation && (
                                 <span
                                   style={{
@@ -2146,6 +2162,10 @@ export const ConfigurationPage = () => {
                                   <span style={{ fontSize: "0.6875rem", background: "#ede9fe", color: "#6d28d9", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>
                                     Team In-charge
                                   </span>
+                                ) : m.role === "superior_admin" ? (
+                                  <span style={{ fontSize: "0.6875rem", background: "#fce7f3", color: "#be185d", padding: "2px 6px", borderRadius: "4px", fontWeight: 700, border: "1px solid #fbcfe8" }}>
+                                    Superior Admin
+                                  </span>
                                 ) : (
                                   <span style={{ fontSize: "0.6875rem", background: "#f1f5f9", color: "#475569", padding: "2px 6px", borderRadius: "4px" }}>
                                     {m.role === "team_admin" ? "Team Lead" : "Employee"}
@@ -2263,6 +2283,11 @@ export const ConfigurationPage = () => {
                             <div>
                               <strong style={{ color: "#0f172a" }}>{c.name}</strong>
                               <span style={{ color: "#64748b", marginLeft: "6px" }}>{c.email}</span>
+                              {c.role === "superior_admin" && (
+                                <span style={{ marginLeft: "6px", fontSize: "0.6875rem", background: "#fce7f3", color: "#be185d", padding: "1px 5px", borderRadius: "3px", fontWeight: 600, border: "1px solid #fbcfe8" }}>
+                                  Superior Admin
+                                </span>
+                              )}
                               <div style={{ marginTop: "2px" }}>
                                 {inThisTeam ? (
                                   <span style={{ fontSize: "0.6875rem", color: "#15803d", background: "#dcfce7", padding: "1px 5px", borderRadius: "3px" }}>

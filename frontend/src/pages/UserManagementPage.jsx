@@ -384,6 +384,7 @@ export const UserManagementPage = () => {
     setEditFormData({
       name: user.name || "",
       email: user.email || "",
+      team_id: user.team_id || "",
       designation: user.designation || "",
       department: user.department || "",
     });
@@ -412,6 +413,7 @@ export const UserManagementPage = () => {
         {
           name: editFormData.name.trim(),
           email: editFormData.email.trim(),
+          team_id: editFormData.team_id || null,
           designation: editFormData.designation.trim(),
           department: editFormData.department.trim(),
         },
@@ -962,7 +964,6 @@ export const UserManagementPage = () => {
                         setFormData({
                           ...formData,
                           role: newRole,
-                          team_id: newRole === "superior_admin" ? "" : formData.team_id,
                         });
                       }}
                       required
@@ -973,26 +974,24 @@ export const UserManagementPage = () => {
                     </select>
                   </div>
 
-                  {formData.role !== "superior_admin" && (
-                    <div className="form-group">
-                      <label htmlFor="userTeam" className="form-label">
-                        Assigned Team <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: "normal" }}>(Optional)</span>
-                      </label>
-                      <select
-                        id="userTeam"
-                        className="form-select"
-                        value={formData.team_id}
-                        onChange={handleTeamChange}
-                      >
-                        <option value="">No team assigned</option>
-                        {teamsList.map((team) => (
-                          <option key={team.id} value={team.id}>
-                            {team.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div className="form-group">
+                    <label htmlFor="userTeam" className="form-label">
+                      Assigned Team <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: "normal" }}>(Optional)</span>
+                    </label>
+                    <select
+                      id="userTeam"
+                      className="form-select"
+                      value={formData.team_id}
+                      onChange={handleTeamChange}
+                    >
+                      <option value="">No team assigned</option>
+                      {teamsList.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {formData.role === "superior_admin" && (
@@ -1011,7 +1010,7 @@ export const UserManagementPage = () => {
                   >
                     <Shield size={15} style={{ flexShrink: 0, marginTop: "1px" }} />
                     <span>
-                      Superior Admin users are not assigned to a team and will have system administration access.
+                      Superior Admin users retain full administrative authority across the entire system. Team assignment is optional.
                     </span>
                   </div>
                 )}
@@ -1508,18 +1507,22 @@ export const UserManagementPage = () => {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Assigned Team</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={
-                        editTarget.role === "superior_admin"
-                          ? "No Team (System Admin)"
-                          : editTarget.team_name || "Unassigned"
-                      }
-                      disabled
-                      style={{ background: "#f1f5f9", cursor: "not-allowed" }}
-                    />
+                    <label htmlFor="editUserTeam" className="form-label">
+                      Assigned Team <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: "normal" }}>(Optional)</span>
+                    </label>
+                    <select
+                      id="editUserTeam"
+                      className="form-select"
+                      value={editFormData.team_id || ""}
+                      onChange={(e) => setEditFormData({ ...editFormData, team_id: e.target.value })}
+                    >
+                      <option value="">No team assigned</option>
+                      {teamsList.map((team) => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 

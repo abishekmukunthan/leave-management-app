@@ -230,14 +230,15 @@ describe("UserManagementPage Action Buttons & Activate/Deactivate Feature", () =
     ).toBeInTheDocument();
   });
 
-  it("should support selecting Superior Admin in Create User modal, hide team select, and show system admin note", async () => {
+  it("should support selecting Superior Admin in Create User modal, keep team select optional, and show system admin note", async () => {
     api.createSuperiorUser.mockResolvedValue({
+      message: "User account created successfully",
       user: {
         id: "sup-2",
         name: "Second Admin",
         email: "second.admin@company.com",
         role: "superior_admin",
-        team_id: null,
+        team_id: "d0000000-0000-0000-0000-000000000001",
       },
       temporaryPassword: "Temp@654321",
     });
@@ -261,12 +262,16 @@ describe("UserManagementPage Action Buttons & Activate/Deactivate Feature", () =
     // Select Superior Admin
     fireEvent.change(roleSelect, { target: { value: "superior_admin" } });
 
-    // Team field should be hidden
-    expect(screen.queryByLabelText(/assigned team/i)).not.toBeInTheDocument();
+    // Team field should be visible and optional
+    const teamSelect = screen.getByLabelText(/assigned team/i);
+    expect(teamSelect).toBeInTheDocument();
+
+    // Select a team optionally
+    fireEvent.change(teamSelect, { target: { value: "d0000000-0000-0000-0000-000000000001" } });
 
     // Explanatory note should be visible
     expect(
-      screen.getByText(/Superior Admin users are not assigned to a team and will have system administration access\./i)
+      screen.getByText(/Superior Admin users retain full administrative authority across the entire system/i)
     ).toBeInTheDocument();
 
     // Fill in and submit
@@ -282,7 +287,7 @@ describe("UserManagementPage Action Buttons & Activate/Deactivate Feature", () =
           name: "Second Admin",
           email: "second.admin@company.com",
           role: "superior_admin",
-          team_id: null,
+          team_id: "d0000000-0000-0000-0000-000000000001",
         })
       );
     });

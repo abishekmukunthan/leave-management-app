@@ -259,8 +259,8 @@ export const superiorDao = {
 
       const userRole = role || "employee";
       const isSuperior = userRole === "superior_admin";
-      // Superior Admin users are not assigned to a team
-      const effectiveTeamId = isSuperior ? null : (team_id || null);
+      // Team assignment is optional for all users, including Superior Admin
+      const effectiveTeamId = team_id || null;
 
       // Check email collision
       const checkEmail = await client.query("SELECT id FROM users WHERE LOWER(email) = LOWER($1)", [email.trim()]);
@@ -270,8 +270,8 @@ export const superiorDao = {
         throw err;
       }
 
-      // Check team if provided (not applicable to superior_admin)
-      let teamName = isSuperior ? "Executive Management" : "Unassigned";
+      // Check team if provided
+      let teamName = isSuperior ? (effectiveTeamId ? "Executive Management" : "Unassigned") : "Unassigned";
       let previousLeadId = null;
       if (effectiveTeamId) {
         const teamRes = await client.query("SELECT id, name, team_admin_id, is_active FROM teams WHERE id = $1", [effectiveTeamId]);
@@ -394,10 +394,20 @@ export const superiorDao = {
         );
       }
 
+      // Grant all existing permissions to Superior Admin users so they have global access
+      if (isSuperior) {
+        await client.query(
+          `INSERT INTO user_permissions (user_id, permission_id, assigned_by, assigned_at)
+           SELECT $1, id, $1, CURRENT_TIMESTAMP FROM permissions
+           ON CONFLICT (user_id, permission_id) DO NOTHING;`,
+          [newUser.id]
+        );
+      }
+
       // Generate Employee Code & Defaults
       const empCode = isSuperior ? `SUP-${Date.now().toString().slice(-6)}` : `EMP-${Date.now().toString().slice(-6)}`;
       const defaultDesignation = isSuperior ? "Superior Admin" : (userRole === "team_admin" ? "Team Lead" : "Employee");
-      const defaultDepartment = isSuperior ? "Executive Management" : teamName;
+      const defaultDepartment = teamName !== "Unassigned" ? teamName : (isSuperior ? "Executive Management" : "General");
 
       // Insert Employee Profile
       const insertProfileQuery = `
@@ -412,7 +422,7 @@ export const superiorDao = {
         empCode,
         designation || defaultDesignation,
         department || defaultDepartment,
-        isSuperior ? "Executive Management" : teamName,
+        teamName,
         employment_type || "Full-time",
       ]);
 
@@ -442,7 +452,7 @@ export const superiorDao = {
       return {
         user: {
           ...newUser,
-          team_name: isSuperior ? "Executive Management" : teamName,
+          team_name: teamName,
           designation: designation || defaultDesignation,
           department: department || defaultDepartment,
           employee_code: empCode,
@@ -584,7 +594,7 @@ export const superiorDao = {
   },
 
   // 5c. Edit user basic details
-  async editUser(userId, { name, email, designation, department }) {
+  async editUser(userId, { name, email, designation, department, team_id }) {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -617,23 +627,52 @@ export const superiorDao = {
       const updatedName = name && name.trim() ? name.trim() : existingUser.name;
       const updatedEmail = email && email.trim() ? email.trim() : existingUser.email;
 
+      let updatedTeamId = existingUser.team_id;
+      let updatedTeamName = null;
+      if (team_id !== undefined) {
+        if (team_id && String(team_id).trim()) {
+          const teamRes = await client.query("SELECT id, name, is_active FROM teams WHERE id = $1", [String(team_id).trim()]);
+          if (teamRes.rows.length === 0) {
+            const err = new Error("Selected team does not exist");
+            err.statusCode = 400;
+            throw err;
+          }
+          if (teamRes.rows[0].is_active === false) {
+            const err = new Error("Selected team is inactive");
+            err.statusCode = 400;
+            throw err;
+          }
+          updatedTeamId = teamRes.rows[0].id;
+          updatedTeamName = teamRes.rows[0].name;
+        } else {
+          updatedTeamId = null;
+          updatedTeamName = existingUser.role === "superior_admin" ? "Executive Management" : "Unassigned";
+        }
+      }
+
       const userUpdateRes = await client.query(
         `UPDATE users 
-         SET name = $1, email = $2, updated_at = CURRENT_TIMESTAMP 
-         WHERE id = $3 
+         SET name = $1, email = $2, team_id = $3, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $4 
          RETURNING id, name, username, email, role, team_id, is_active, updated_at`,
-        [updatedName, updatedEmail, userId]
+        [updatedName, updatedEmail, updatedTeamId, userId]
       );
 
       // Update employee profile if provided
-      if (designation !== undefined || department !== undefined) {
+      if (designation !== undefined || department !== undefined || updatedTeamName !== null) {
         await client.query(
           `UPDATE employee_profiles 
            SET designation = COALESCE($1, designation), 
                department = COALESCE($2, department), 
+               team = COALESCE($3, team),
                updated_at = CURRENT_TIMESTAMP 
-           WHERE user_id = $3`,
-          [designation ? designation.trim() : null, department ? department.trim() : null, userId]
+           WHERE user_id = $4`,
+          [
+            designation ? designation.trim() : null,
+            department ? department.trim() : null,
+            updatedTeamName,
+            userId,
+          ]
         );
       }
 
@@ -650,7 +689,7 @@ export const superiorDao = {
         ...userUpdateRes.rows[0],
         designation: profile.designation,
         department: profile.department,
-        team_name: profile.team,
+        team_name: updatedTeamName || profile.team || (updatedTeamId ? "Assigned" : "Unassigned"),
         employee_code: profile.employee_code,
       };
     } catch (error) {
@@ -746,11 +785,6 @@ export const superiorDao = {
         }
 
         for (const u of memRes.rows) {
-          if (u.role === "superior_admin") {
-            const err = new Error("Superior Admin users cannot be added as regular team members.");
-            err.statusCode = 400;
-            throw err;
-          }
           if (!u.is_active) {
             const err = new Error("Inactive users cannot be added to teams.");
             err.statusCode = 400;
@@ -761,8 +795,8 @@ export const superiorDao = {
             err.statusCode = 400;
             throw err;
           }
-          if (u.role !== "employee") {
-            const err = new Error("Initial team members must be active employees who are not assigned to any team.");
+          if (u.role !== "employee" && u.role !== "superior_admin") {
+            const err = new Error("Initial team members must be active employees or superior admins who are not assigned to any team.");
             err.statusCode = 400;
             throw err;
           }
@@ -860,6 +894,10 @@ export const superiorDao = {
         await client.query(
           "UPDATE users SET team_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = ANY($2)",
           [newTeam.id, uniqueMemberIds]
+        );
+        await client.query(
+          "UPDATE employee_profiles SET team = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = ANY($2)",
+          [newTeam.name, uniqueMemberIds]
         );
       }
 
@@ -1751,7 +1789,7 @@ export const superiorDao = {
       FROM users u
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
       WHERE COALESCE(u.is_active, true) = true
-        AND u.role = 'employee'
+        AND u.role IN ('employee', 'superior_admin')
         AND u.team_id IS NULL
     `;
     const params = [];
@@ -1842,7 +1880,6 @@ export const superiorDao = {
       LEFT JOIN teams t ON u.team_id = t.id
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
       WHERE COALESCE(u.is_active, true) = true
-        AND u.role != 'superior_admin'
     `;
     const params = [];
     if (searchText && searchText.trim()) {
@@ -1952,12 +1989,6 @@ export const superiorDao = {
         throw err;
       }
 
-      if (user.role === "superior_admin") {
-        const err = new Error("Superior Admin users cannot be added as regular team members.");
-        err.statusCode = 400;
-        throw err;
-      }
-
       if (user.team_id === teamId) {
         const err = new Error("User is already a member of this team.");
         err.statusCode = 400;
@@ -1980,10 +2011,16 @@ export const superiorDao = {
         throw err;
       }
 
-      // Update team_id
+      // Update team_id (role and administrative permissions remain untouched)
       await client.query(
         "UPDATE users SET team_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
         [teamId, userId]
+      );
+
+      // Update employee_profiles team name if profile exists
+      await client.query(
+        "UPDATE employee_profiles SET team = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2",
+        [team.name, userId]
       );
 
       // Fetch new team member count
@@ -2046,7 +2083,7 @@ export const superiorDao = {
 
       // Validate user
       const userRes = await client.query(
-        "SELECT id, name, team_id FROM users WHERE id = $1",
+        "SELECT id, name, role, team_id FROM users WHERE id = $1",
         [userId]
       );
       if (userRes.rows.length === 0) {
@@ -2066,6 +2103,13 @@ export const superiorDao = {
       await client.query(
         "UPDATE users SET team_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
         [userId]
+      );
+
+      // Update employee_profiles team name
+      const resetTeamName = user.role === "superior_admin" ? "Executive Management" : "Unassigned";
+      await client.query(
+        "UPDATE employee_profiles SET team = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2",
+        [resetTeamName, userId]
       );
 
       // Fetch new team member count

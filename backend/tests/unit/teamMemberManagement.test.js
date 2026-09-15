@@ -121,20 +121,24 @@ describe("Superior Admin Team Member Management (/api/superior)", () => {
       expect(res.body.message).toBe("Inactive users cannot be added to teams.");
     });
 
-    it("should return 400 if initial member is superior_admin", async () => {
-      const error = new Error("Superior Admin users cannot be added as regular team members.");
-      error.statusCode = 400;
-      vi.spyOn(superiorDao, "createTeam").mockRejectedValue(error);
+    it("should allow adding superior_admin as initial team member", async () => {
+      vi.spyOn(superiorDao, "createTeam").mockResolvedValue({
+        id: "team-exec",
+        name: "Executive Team",
+        team_admin_id: null,
+        is_active: true,
+        member_count: 1,
+      });
 
       const res = await request(app)
         .post("/api/superior/teams")
         .send({
-          name: "Finance",
+          name: "Executive Team",
           initial_member_ids: ["sup-admin-id"],
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.message).toBe("Superior Admin users cannot be added as regular team members.");
+      expect(res.status).toBe(201);
+      expect(res.body.team.name).toBe("Executive Team");
     });
   });
 
@@ -279,17 +283,31 @@ describe("Superior Admin Team Member Management (/api/superior)", () => {
       expect(res.body.message).toBe("User is already a member of this team.");
     });
 
-    it("should reject adding user if user is superior_admin", async () => {
-      const error = new Error("Superior Admin users cannot be added as regular team members.");
-      error.statusCode = 400;
-      vi.spyOn(superiorDao, "addOrMoveTeamMember").mockRejectedValue(error);
+    it("should allow adding superior_admin user to a team while preserving role", async () => {
+      vi.spyOn(superiorDao, "addOrMoveTeamMember").mockResolvedValue({
+        success: true,
+        message: "Successfully added Nadia Perera to Executive Team.",
+        user: {
+          id: "sup-nadia",
+          name: "Nadia Perera",
+          email: "nadia@company.com",
+          role: "superior_admin",
+          team_id: "team-exec",
+          team_name: "Executive Team",
+        },
+        team_id: "team-exec",
+        team_name: "Executive Team",
+        member_count: 2,
+      });
 
       const res = await request(app)
-        .put("/api/superior/teams/team-eng/members/sup-nadia")
+        .put("/api/superior/teams/team-exec/members/sup-nadia")
         .send({ confirm_move: false });
 
-      expect(res.status).toBe(400);
-      expect(res.body.message).toBe("Superior Admin users cannot be added as regular team members.");
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.user.role).toBe("superior_admin");
+      expect(res.body.user.team_id).toBe("team-exec");
     });
   });
 

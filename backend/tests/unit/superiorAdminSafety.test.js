@@ -42,10 +42,9 @@ describe("Superior Admin Account Management Safety Rules", () => {
           id: "sup-sarah",
           name: "Sarah Connor",
           email: "sarah.connor@company.com",
-          username: "sarah.connor",
           role: "superior_admin",
-          team_id: null,
-          team_name: "Executive Management",
+          team_id: "exec-team-id",
+          team_name: "Executive Team",
           designation: "Superior Admin",
           department: "Executive Management",
           is_active: true,
@@ -60,17 +59,17 @@ describe("Superior Admin Account Management Safety Rules", () => {
           name: "Sarah Connor",
           email: "sarah.connor@company.com",
           role: "superior_admin",
-          team_id: "ignored-team-id", // should be set to null for superior_admin
+          team_id: "exec-team-id",
         });
 
       expect(res.status).toBe(201);
       expect(res.body.message).toBe("User account created successfully");
       expect(res.body.user.role).toBe("superior_admin");
-      expect(res.body.user.team_id).toBeNull();
+      expect(res.body.user.team_id).toBe("exec-team-id");
       expect(superiorDao.createUser).toHaveBeenCalledWith(
         expect.objectContaining({
           role: "superior_admin",
-          team_id: null,
+          team_id: "exec-team-id",
         })
       );
     });

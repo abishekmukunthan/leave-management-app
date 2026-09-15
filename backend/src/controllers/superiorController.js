@@ -65,7 +65,7 @@ export const superiorController = {
         name,
         email,
         role,
-        team_id: role === "superior_admin" ? null : team_id,
+        team_id: team_id || null,
         designation,
         department,
         employment_type,
@@ -195,7 +195,7 @@ export const superiorController = {
   async editUser(req, res) {
     try {
       const { id } = req.params;
-      const { superior_admin_id, name, email, designation, department } = req.body || {};
+      const { superior_admin_id, name, email, designation, department, team_id } = req.body || {};
       const requesterId = superior_admin_id || req.user?.id;
 
       if (!id) {
@@ -223,7 +223,7 @@ export const superiorController = {
         return res.status(400).json({ error: "Email cannot be empty", message: "Email cannot be empty" });
       }
 
-      const updatedUser = await superiorDao.editUser(id, { name, email, designation, department });
+      const updatedUser = await superiorDao.editUser(id, { name, email, designation, department, team_id });
       return res.status(200).json({
         message: "User details updated successfully.",
         user: updatedUser,
