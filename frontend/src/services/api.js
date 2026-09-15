@@ -286,6 +286,14 @@ export const activateTeam = async (teamId, superiorAdminId) => {
 };
 export const activateSuperiorTeam = activateTeam;
 
+export const deleteTeam = async (teamId, superiorAdminId) => {
+  return await fetchJson(`/api/superior/teams/${encodeURIComponent(teamId)}`, {
+    method: "DELETE",
+    body: superiorAdminId ? JSON.stringify({ superior_admin_id: superiorAdminId }) : undefined,
+  });
+};
+export const deleteSuperiorTeam = deleteTeam;
+
 // 12. Superior Leave Types Configuration API Functions
 export const getSuperiorLeaveTypes = async () => {
   return await fetchJson("/api/superior/leave-types");

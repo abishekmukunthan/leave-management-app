@@ -956,6 +956,93 @@ export const superiorDao = {
     return res.rows[0];
   },
 
+  // 13. Permanently Delete an Inactive Team
+  async deleteTeam(teamId) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // 1. Verify team exists and is locked for update
+      const checkTeam = await client.query(
+        "SELECT id, name, team_admin_id, COALESCE(is_active, true) AS is_active FROM teams WHERE id = $1 FOR UPDATE",
+        [teamId]
+      );
+      if (checkTeam.rows.length === 0) {
+        const err = new Error("Team not found.");
+        err.statusCode = 404;
+        throw err;
+      }
+      const team = checkTeam.rows[0];
+
+      // 2. Reject if team is active (must be deactivated first)
+      if (team.is_active !== false) {
+        const err = new Error("Active teams cannot be deleted. Deactivate the team first.");
+        err.statusCode = 409;
+        throw err;
+      }
+
+      // 3. Handle current members: unassign them safely without deleting or deactivating users
+      const membersRes = await client.query(
+        "SELECT id FROM users WHERE team_id = $1",
+        [teamId]
+      );
+      const memberIds = membersRes.rows.map((r) => r.id);
+
+      if (memberIds.length > 0) {
+        await client.query(
+          "UPDATE users SET team_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE team_id = $1",
+          [teamId]
+        );
+        await client.query(
+          "UPDATE employee_profiles SET team = 'Unassigned', updated_at = CURRENT_TIMESTAMP WHERE user_id = ANY($1)",
+          [memberIds]
+        );
+      }
+
+      // 4. Handle team approval permission mapping and cleanup
+      const tapRes = await client.query(
+        "SELECT permission_id FROM team_approval_permissions WHERE team_id = $1",
+        [teamId]
+      );
+      if (tapRes.rows.length > 0) {
+        const permId = tapRes.rows[0].permission_id;
+        // Delete team mapping
+        await client.query("DELETE FROM team_approval_permissions WHERE team_id = $1", [teamId]);
+
+        // Check if any other team is using this permission
+        const otherTeamsRes = await client.query(
+          "SELECT COUNT(*)::INTEGER AS count FROM team_approval_permissions WHERE permission_id = $1",
+          [permId]
+        );
+        if (otherTeamsRes.rows[0].count === 0) {
+          // Safe to clean user_permissions and permissions for this deleted team
+          await client.query("DELETE FROM user_permissions WHERE permission_id = $1", [permId]);
+          await client.query("DELETE FROM permissions WHERE id = $1", [permId]);
+        }
+      }
+
+      // 5. Permanently delete the team record
+      // Note: Historical leave_requests reference employee_id / approved_by (users), NOT teams.id.
+      // Leave records are 100% preserved and never cascade deleted.
+      await client.query("DELETE FROM teams WHERE id = $1", [teamId]);
+
+      await client.query("COMMIT");
+
+      return {
+        success: true,
+        message: "Team deleted successfully.",
+        team_id: teamId,
+        team_name: team.name,
+        unassigned_members_count: memberIds.length,
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   // =========================================================================
   // LEAVE TYPES MANAGEMENT DAOs
   // =========================================================================

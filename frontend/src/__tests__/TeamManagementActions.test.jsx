@@ -15,12 +15,13 @@ vi.mock("../services/api", async () => {
     getSuperiorPermissions: vi.fn(),
     activateTeam: vi.fn(),
     deactivateTeam: vi.fn(),
+    deleteTeam: vi.fn(),
     getTeamMembers: vi.fn(),
     getUnassignedEmployees: vi.fn(),
   };
 });
 
-describe("ConfigurationPage Teams Action Buttons & Activate/Deactivate Feature", () => {
+describe("ConfigurationPage Teams Action Buttons & Activate/Deactivate/Delete Feature", () => {
   const mockSuperiorAdmin = {
     id: "sup-nadia",
     name: "Nadia Perera",
@@ -63,6 +64,7 @@ describe("ConfigurationPage Teams Action Buttons & Activate/Deactivate Feature",
     api.getUnassignedEmployees.mockResolvedValue({ employees: [] });
     api.deactivateTeam.mockResolvedValue({ message: "Team deactivated successfully.", team: { ...mockTeams[0], is_active: false } });
     api.activateTeam.mockResolvedValue({ message: "Team activated successfully.", team: { ...mockTeams[1], is_active: true } });
+    api.deleteTeam.mockResolvedValue({ message: "Team deleted successfully.", team_id: "team-2" });
   });
 
   it("should render action buttons vertically in the required order for active and inactive teams", async () => {
@@ -85,20 +87,134 @@ describe("ConfigurationPage Teams Action Buttons & Activate/Deactivate Feature",
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText("Inactive")).toBeInTheDocument();
 
-    // Active team shows Deactivate Team button
+    // Active team shows Deactivate Team button but NOT Delete Team
     const deactivateBtn = screen.getByRole("button", { name: /^deactivate team$/i });
     expect(deactivateBtn).toBeInTheDocument();
 
-    // Inactive team shows Activate Team button
+    // Inactive team shows Activate Team and Delete Team buttons
     const activateBtn = screen.getByRole("button", { name: /^activate team$/i });
     expect(activateBtn).toBeInTheDocument();
+    const deleteBtn = screen.getByRole("button", { name: /^delete team$/i });
+    expect(deleteBtn).toBeInTheDocument();
 
     // Verify button orders in both rows
     const firstRowButtons = Array.from(actionContainers[0].querySelectorAll("button")).map((b) => b.textContent.trim());
     expect(firstRowButtons).toEqual(["Assign In-charge", "Permission", "Edit", "Deactivate Team"]);
 
     const secondRowButtons = Array.from(actionContainers[1].querySelectorAll("button")).map((b) => b.textContent.trim());
-    expect(secondRowButtons).toEqual(["Assign In-charge", "Permission", "Edit", "Activate Team"]);
+    expect(secondRowButtons).toEqual(["Assign In-charge", "Permission", "Edit", "Activate Team", "Delete Team"]);
+  });
+
+  it("should hide Delete Team button for active team and show it only for inactive team", async () => {
+    render(
+      <LeaveProvider>
+        <ConfigurationPage />
+      </LeaveProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Engineering Team")).toBeInTheDocument();
+    });
+
+    // Only 1 Delete Team button exists on the page (for Legacy Operations)
+    const deleteButtons = screen.getAllByRole("button", { name: /^delete team$/i });
+    expect(deleteButtons).toHaveLength(1);
+
+    const actionContainers = document.querySelectorAll(".team-action-buttons-vertical");
+    // Active team container does NOT contain a delete button
+    expect(actionContainers[0].querySelector("button[title*='Delete']")).toBeNull();
+    // Inactive team container DOES contain a delete button
+    expect(actionContainers[1].querySelector("button[title*='Delete']")).not.toBeNull();
+  });
+
+  it("should open Delete Team Permanently confirmation modal and cancel when Cancel is clicked", async () => {
+    render(
+      <LeaveProvider>
+        <ConfigurationPage />
+      </LeaveProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Legacy Operations")).toBeInTheDocument();
+    });
+
+    const deleteBtn = screen.getByRole("button", { name: /^delete team$/i });
+    fireEvent.click(deleteBtn);
+
+    // Modal should appear
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^delete team permanently$/i })).toBeInTheDocument();
+      expect(screen.getByText(/You are about to permanently delete/i)).toBeInTheDocument();
+      expect(screen.getByText(/This action cannot be undone\./i)).toBeInTheDocument();
+    });
+
+    // Click Cancel
+    const cancelBtn = screen.getByRole("button", { name: /^cancel$/i });
+    fireEvent.click(cancelBtn);
+
+    // Modal should close and deleteTeam should NOT be called
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: /^delete team permanently$/i })).not.toBeInTheDocument();
+    });
+    expect(api.deleteTeam).not.toHaveBeenCalled();
+  });
+
+  it("should successfully call deleteTeam API on confirmation and refresh team list", async () => {
+    render(
+      <LeaveProvider>
+        <ConfigurationPage />
+      </LeaveProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Legacy Operations")).toBeInTheDocument();
+    });
+
+    const deleteBtn = screen.getByRole("button", { name: /^delete team$/i });
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^delete team permanently$/i })).toBeInTheDocument();
+    });
+
+    // Mock subsequent getSuperiorTeams call after deletion to return only the active team
+    api.getSuperiorTeams.mockResolvedValueOnce({ teams: [mockTeams[0]] });
+
+    // Click Delete Team Permanently button
+    const confirmDeleteBtn = screen.getByRole("button", { name: /^delete team permanently$/i });
+    fireEvent.click(confirmDeleteBtn);
+
+    await waitFor(() => {
+      expect(api.deleteTeam).toHaveBeenCalledWith("team-2", "sup-nadia");
+    });
+  });
+
+  it("should display error toast when deleteTeam API call fails", async () => {
+    api.deleteTeam.mockRejectedValue(new Error("Active teams cannot be deleted. Deactivate the team first."));
+
+    render(
+      <LeaveProvider>
+        <ConfigurationPage />
+      </LeaveProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Legacy Operations")).toBeInTheDocument();
+    });
+
+    const deleteBtn = screen.getByRole("button", { name: /^delete team$/i });
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^delete team permanently$/i })).toBeInTheDocument();
+    });
+
+    const confirmDeleteBtn = screen.getByRole("button", { name: /^delete team permanently$/i });
+    fireEvent.click(confirmDeleteBtn);
+
+    await waitFor(() => {
+      expect(api.deleteTeam).toHaveBeenCalledWith("team-2", "sup-nadia");
+    });
   });
 
   it("should open Deactivate Team confirmation modal and call deactivateTeam API on confirm", async () => {

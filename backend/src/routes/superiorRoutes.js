@@ -93,6 +93,9 @@ router.put("/teams/:id/deactivate", superiorController.deactivateTeam);
 // PUT /api/superior/teams/:id/activate - Activate a team
 router.put("/teams/:id/activate", superiorController.activateTeam);
 
+// DELETE /api/superior/teams/:id - Permanently delete an inactive team
+router.delete("/teams/:id", superiorController.deleteTeam);
+
 // PUT /api/superior/teams/:id/team-lead - Assign or change Team Lead for a team
 router.put("/teams/:id/team-lead", superiorController.assignTeamLead);
 

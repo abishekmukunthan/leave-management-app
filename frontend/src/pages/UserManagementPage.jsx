@@ -985,7 +985,7 @@ export const UserManagementPage = () => {
                       onChange={handleTeamChange}
                     >
                       <option value="">No team assigned</option>
-                      {teamsList.map((team) => (
+                      {teamsList.filter((team) => team.is_active !== false).map((team) => (
                         <option key={team.id} value={team.id}>
                           {team.name}
                         </option>
@@ -1517,7 +1517,7 @@ export const UserManagementPage = () => {
                       onChange={(e) => setEditFormData({ ...editFormData, team_id: e.target.value })}
                     >
                       <option value="">No team assigned</option>
-                      {teamsList.map((team) => (
+                      {teamsList.filter((team) => team.is_active !== false || team.id === editFormData.team_id).map((team) => (
                         <option key={team.id} value={team.id}>
                           {team.name}
                         </option>
@@ -1888,7 +1888,7 @@ export const UserManagementPage = () => {
                         required
                       >
                         <option value="">-- Choose a team --</option>
-                        {teamsList.map((team) => (
+                        {teamsList.filter((team) => team.is_active !== false).map((team) => (
                           <option key={team.id} value={team.id}>
                             {team.name} {team.team_admin_name ? `(Current Lead: ${team.team_admin_name})` : "(Unassigned)"}
                           </option>

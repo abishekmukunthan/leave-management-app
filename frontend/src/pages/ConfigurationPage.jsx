@@ -30,6 +30,7 @@ import {
   updateSuperiorTeam,
   deactivateTeam,
   activateTeam,
+  deleteTeam,
   getSuperiorLeaveTypes,
   createSuperiorLeaveType,
   updateSuperiorLeaveType,
@@ -134,11 +135,13 @@ export const ConfigurationPage = () => {
     error: "",
   });
 
-  // Activate / Deactivate Team Modal States
+  // Activate / Deactivate / Delete Team Modal States
   const [activateTeamTarget, setActivateTeamTarget] = useState(null);
   const [activatingTeam, setActivatingTeam] = useState(false);
   const [deactivateTeamTarget, setDeactivateTeamTarget] = useState(null);
   const [deactivatingTeam, setDeactivatingTeam] = useState(false);
+  const [deleteTeamTarget, setDeleteTeamTarget] = useState(null);
+  const [deletingTeam, setDeletingTeam] = useState(false);
 
   // Leave Types State
   const [leaveTypes, setLeaveTypes] = useState([]);
@@ -580,6 +583,22 @@ export const ConfigurationPage = () => {
       showToast(err.message || "Failed to deactivate team", "warning");
     } finally {
       setDeactivatingTeam(false);
+    }
+  };
+
+  const handleConfirmDeleteTeam = async () => {
+    if (!deleteTeamTarget) return;
+    setDeletingTeam(true);
+    try {
+      const res = await deleteTeam(deleteTeamTarget.id, loggedInUser?.id);
+      showToast(res.message || "Team deleted successfully.", "success");
+      setDeleteTeamTarget(null);
+      loadAllData();
+    } catch (err) {
+      console.error("Error deleting team:", err);
+      showToast(err.message || "Failed to delete team", "error");
+    } finally {
+      setDeletingTeam(false);
     }
   };
 
@@ -1173,15 +1192,27 @@ export const ConfigurationPage = () => {
                                   <span>Deactivate Team</span>
                                 </button>
                               ) : (
-                                <button
-                                  type="button"
-                                  className="action-btn-vertical admin-approve-btn"
-                                  onClick={() => setActivateTeamTarget(team)}
-                                  title="Activate team"
-                                >
-                                  <CheckCircle2 size={13} />
-                                  <span>Activate Team</span>
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    className="action-btn-vertical admin-approve-btn"
+                                    onClick={() => setActivateTeamTarget(team)}
+                                    title="Activate team"
+                                  >
+                                    <CheckCircle2 size={13} />
+                                    <span>Activate Team</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="action-btn-vertical admin-reject-btn"
+                                    onClick={() => setDeleteTeamTarget(team)}
+                                    title="Delete team permanently"
+                                    style={{ color: "#dc2626", borderColor: "#fecaca" }}
+                                  >
+                                    <Trash2 size={13} />
+                                    <span>Delete Team</span>
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -3188,6 +3219,68 @@ export const ConfigurationPage = () => {
                 style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}
               >
                 {deactivatingTeam ? "Deactivating..." : "Deactivate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          DELETE TEAM PERMANENTLY CONFIRMATION MODAL
+         ========================================================================= */}
+      {deleteTeamTarget && (
+        <div className="modal-backdrop" onClick={() => setDeleteTeamTarget(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "480px" }}>
+            <div className="modal-header" style={{ background: "#fef2f2", borderBottomColor: "#fecaca" }}>
+              <div>
+                <h2 style={{ color: "#991b1b", display: "flex", alignItems: "center", gap: "0.45rem" }}>
+                  <AlertTriangle size={18} style={{ color: "#ef4444" }} />
+                  <span>Delete Team Permanently</span>
+                </h2>
+              </div>
+              <button className="modal-close-btn" onClick={() => setDeleteTeamTarget(null)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <p style={{ fontSize: "0.875rem", color: "#0f172a", margin: 0, lineHeight: 1.5 }}>
+                You are about to permanently delete <strong>'{deleteTeamTarget.name}'</strong>.
+              </p>
+              <p style={{ fontSize: "0.8125rem", color: "#b91c1c", margin: 0, fontWeight: 600 }}>
+                This action cannot be undone.
+              </p>
+              <p style={{ fontSize: "0.8125rem", color: "#475569", margin: 0, lineHeight: 1.4 }}>
+                Any current team membership, Team In-charge configuration and team-specific configuration may be affected.
+              </p>
+              <p style={{ fontSize: "0.8125rem", color: "#334155", margin: 0, fontWeight: 500 }}>
+                Are you sure you want to continue?
+              </p>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setDeleteTeamTarget(null)}
+                disabled={deletingTeam}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="admin-reject-btn"
+                onClick={handleConfirmDeleteTeam}
+                disabled={deletingTeam}
+                style={{
+                  padding: "0.5rem 1rem",
+                  fontSize: "0.8125rem",
+                  backgroundColor: "#dc2626",
+                  color: "#ffffff",
+                  borderColor: "#dc2626",
+                }}
+              >
+                {deletingTeam ? "Deleting..." : "Delete Team Permanently"}
               </button>
             </div>
           </div>

@@ -439,6 +439,46 @@ export const superiorController = {
     }
   },
 
+  // DELETE /api/superior/teams/:id - Permanently delete an inactive team
+  async deleteTeam(req, res) {
+    try {
+      const { id } = req.params;
+      const { superior_admin_id } = req.body || {};
+      const requesterId = superior_admin_id || req.user?.id;
+
+      if (!id) {
+        return res.status(400).json({ error: "Team ID is required", message: "Team ID is required" });
+      }
+
+      if (requesterId) {
+        const check = await pool.query(
+          "SELECT id, role, is_active FROM users WHERE id = $1",
+          [requesterId]
+        );
+        if (check.rows.length === 0 || check.rows[0].role !== "superior_admin" || !check.rows[0].is_active) {
+          return res.status(403).json({
+            error: "Only authorized Superior Admins can perform this action.",
+            message: "Only authorized Superior Admins can perform this action.",
+          });
+        }
+      }
+
+      const result = await superiorDao.deleteTeam(id);
+      return res.status(200).json({
+        message: result.message || "Team deleted successfully.",
+        team_id: id,
+        ...result,
+      });
+    } catch (error) {
+      console.error("Error deleting team:", error);
+      const status = error.statusCode || 500;
+      return res.status(status).json({
+        error: error.message || "Failed to delete team",
+        message: error.message || "Failed to delete team",
+      });
+    }
+  },
+
   // =========================================================================
   // LEAVE TYPES CONTROLLERS
   // =========================================================================
