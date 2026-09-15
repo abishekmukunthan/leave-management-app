@@ -210,9 +210,9 @@ export const leaveDao = {
     return result.rows[0] || null;
   },
 
-  // Get active employees eligible to act as substitute
+  // Get active employees eligible to act as substitute (all active roles: employee, team_admin, superior_admin)
   async getSubstituteEmployees({ employee_id = null, search = null, limit = 50 }) {
-    const conditions = ["u.is_active = true", "u.role != 'superior_admin'"];
+    const conditions = ["u.is_active = true"];
     const params = [];
 
     if (employee_id) {
@@ -227,6 +227,7 @@ export const leaveDao = {
         u.name ILIKE $${idx} OR
         u.username ILIKE $${idx} OR
         u.email ILIKE $${idx} OR
+        u.role ILIKE $${idx} OR
         t.name ILIKE $${idx} OR
         ep.department ILIKE $${idx} OR
         ep.designation ILIKE $${idx}
@@ -256,5 +257,16 @@ export const leaveDao = {
 
     const result = await pool.query(query, params);
     return result.rows;
+  },
+
+  // Get user details by ID for substitute validation
+  async getSubstituteUserById(id) {
+    const query = `
+      SELECT id, name, username, email, role, is_active, team_id
+      FROM users
+      WHERE id = $1;
+    `;
+    const result = await pool.query(query, [id]);
+    return result.rows[0] || null;
   },
 };

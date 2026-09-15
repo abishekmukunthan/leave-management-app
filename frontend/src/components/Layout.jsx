@@ -3,7 +3,6 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Menu, Plus, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { Navbar } from "./Navbar";
 import { useLeave } from "../context/useLeave";
-import { isSuperiorAdmin } from "../services/auth";
 
 export const Layout = () => {
   const location = useLocation();
@@ -12,7 +11,6 @@ export const Layout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const activeUser = loggedInUser || currentUser;
-  const isSuperior = isSuperiorAdmin(activeUser);
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -98,15 +96,13 @@ export const Layout = () => {
           </div>
 
           <div className="header-right">
-            {!isSuperior && (
-              <button
-                className="quick-apply-btn"
-                onClick={() => navigate("/apply-leave")}
-              >
-                <Plus size={15} strokeWidth={2.5} />
-                <span>Apply Leave</span>
-              </button>
-            )}
+            <button
+              className="quick-apply-btn"
+              onClick={() => navigate("/apply-leave")}
+            >
+              <Plus size={15} strokeWidth={2.5} />
+              <span>Apply Leave</span>
+            </button>
 
             <div className="header-user-badge" onClick={() => navigate("/profile")}>
               <div className="user-initials">

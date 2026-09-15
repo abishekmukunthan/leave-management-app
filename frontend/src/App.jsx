@@ -187,29 +187,11 @@ function App() {
                 </RequireNonSuperior>
               }
             />
-            <Route
-              path="apply-leave"
-              element={
-                <RequireNonSuperior>
-                  <ApplyLeavePage />
-                </RequireNonSuperior>
-              }
-            />
-            <Route
-              path="my-leaves"
-              element={
-                <RequireNonSuperior>
-                  <MyLeavesPage />
-                </RequireNonSuperior>
-              }
-            />
+            <Route path="apply-leave" element={<ApplyLeavePage />} />
+            <Route path="my-leaves" element={<MyLeavesPage />} />
             <Route
               path="substitute-requests"
-              element={
-                <RequireNonSuperior>
-                  <SubstituteRequestsPage />
-                </RequireNonSuperior>
-              }
+              element={<SubstituteRequestsPage />}
             />
             <Route
               path="admin"

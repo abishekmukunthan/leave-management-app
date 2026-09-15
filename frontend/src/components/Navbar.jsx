@@ -94,6 +94,46 @@ export const Navbar = () => {
               </span>
               <span className="nav-label">Reports</span>
             </NavLink>
+
+            <div className="sidebar-section-title" style={{ marginTop: "1rem" }}>
+              MY ATTENDANCE
+            </div>
+            <NavLink
+              to="/apply-leave"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <CalendarPlus size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">Apply Leave</span>
+            </NavLink>
+            <NavLink
+              to="/my-leaves"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <CalendarDays size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">My Leaves</span>
+            </NavLink>
+            <NavLink
+              to="/substitute-requests"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <UserCheck size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">Substitute Requests</span>
+            </NavLink>
+            <NavLink
+              to="/calendar"
+              className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+            >
+              <span className="nav-icon">
+                <CalendarDays size={18} strokeWidth={2} />
+              </span>
+              <span className="nav-label">Calendar</span>
+            </NavLink>
           </>
         )}
 

@@ -164,6 +164,24 @@ export const leaveController = {
           });
         }
 
+        const substituteUser = await leaveDao.getSubstituteUserById(substitute_employee_id);
+        if (!substituteUser) {
+          return res.status(400).json({
+            error: "Substitute employee not found",
+          });
+        }
+        if (substituteUser.is_active === false) {
+          return res.status(400).json({
+            error: "Selected substitute employee is inactive",
+          });
+        }
+        const allowedRoles = ["employee", "team_admin", "superior_admin"];
+        if (!allowedRoles.includes(substituteUser.role)) {
+          return res.status(400).json({
+            error: "Selected substitute employee does not have an eligible role",
+          });
+        }
+
         const newLeave = await leaveDao.createLeaveWithSubstitute({
           ...leavePayload,
           substitute_employee_id,

@@ -92,6 +92,12 @@ export const ApplyLeavePage = () => {
     };
   }, [applicant?.id, substituteSearch]);
 
+  const formatRoleName = (role) => {
+    if (role === "superior_admin") return "Superior Admin";
+    if (role === "team_admin") return "Team In-charge";
+    return "Employee";
+  };
+
   // Client-side search filtering across multiple fields
   const filteredSubstitutes = substitutesList.filter((emp) => {
     if (emp.id === applicant?.id) return false;
@@ -103,7 +109,9 @@ export const ApplyLeavePage = () => {
     const matchTeam = emp.team_name?.toLowerCase().includes(q);
     const matchDept = emp.department?.toLowerCase().includes(q);
     const matchDesig = emp.designation?.toLowerCase().includes(q);
-    return matchName || matchUsername || matchEmail || matchTeam || matchDept || matchDesig;
+    const roleFormatted = formatRoleName(emp.role).toLowerCase();
+    const matchRole = roleFormatted.includes(q) || (emp.role || "").toLowerCase().includes(q);
+    return matchName || matchUsername || matchEmail || matchTeam || matchDept || matchDesig || matchRole;
   });
 
   const handleSelectSubstitute = (emp) => {
@@ -432,10 +440,46 @@ export const ApplyLeavePage = () => {
                       {(selectedSubstitute.name || "EM").slice(0, 2).toUpperCase()}
                     </div>
                     <div className="substitute-selected-info">
-                      <span className="substitute-selected-name">{selectedSubstitute.name}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span className="substitute-selected-name">{selectedSubstitute.name}</span>
+                        {selectedSubstitute.role === "superior_admin" && (
+                          <span
+                            style={{
+                              fontSize: "0.6875rem",
+                              fontWeight: 700,
+                              padding: "1px 6px",
+                              borderRadius: "4px",
+                              backgroundColor: "#fef3c7",
+                              color: "#92400e",
+                              border: "1px solid #fde68a",
+                            }}
+                          >
+                            Superior Admin
+                          </span>
+                        )}
+                        {selectedSubstitute.role === "team_admin" && (
+                          <span
+                            style={{
+                              fontSize: "0.6875rem",
+                              fontWeight: 600,
+                              padding: "1px 6px",
+                              borderRadius: "4px",
+                              backgroundColor: "#ede9fe",
+                              color: "#5b21b6",
+                              border: "1px solid #ddd6fe",
+                            }}
+                          >
+                            Team In-charge
+                          </span>
+                        )}
+                      </div>
                       <span className="substitute-selected-meta">
-                        {selectedSubstitute.team_name || selectedSubstitute.department || "Office"}
-                        {selectedSubstitute.designation ? ` • ${selectedSubstitute.designation}` : ""}
+                        {selectedSubstitute.team_name || selectedSubstitute.department || "Unassigned"}
+                        {` • ${formatRoleName(selectedSubstitute.role)}`}
+                        {selectedSubstitute.designation &&
+                        selectedSubstitute.designation.toLowerCase() !== formatRoleName(selectedSubstitute.role).toLowerCase()
+                          ? ` • ${selectedSubstitute.designation}`
+                          : ""}
                       </span>
                     </div>
                     <button
@@ -492,10 +536,45 @@ export const ApplyLeavePage = () => {
                                 {(emp.name || "EM").slice(0, 2).toUpperCase()}
                               </div>
                               <div className="substitute-option-info">
-                                <span className="substitute-option-name">{emp.name}</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                  <span className="substitute-option-name">{emp.name}</span>
+                                  {emp.role === "superior_admin" && (
+                                    <span
+                                      style={{
+                                        fontSize: "0.6875rem",
+                                        fontWeight: 700,
+                                        padding: "1px 6px",
+                                        borderRadius: "4px",
+                                        backgroundColor: "#fef3c7",
+                                        color: "#92400e",
+                                        border: "1px solid #fde68a",
+                                      }}
+                                    >
+                                      Superior Admin
+                                    </span>
+                                  )}
+                                  {emp.role === "team_admin" && (
+                                    <span
+                                      style={{
+                                        fontSize: "0.6875rem",
+                                        fontWeight: 600,
+                                        padding: "1px 6px",
+                                        borderRadius: "4px",
+                                        backgroundColor: "#ede9fe",
+                                        color: "#5b21b6",
+                                        border: "1px solid #ddd6fe",
+                                      }}
+                                    >
+                                      Team In-charge
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="substitute-option-meta">
-                                  {emp.team_name || emp.department || "Office"}
-                                  {emp.designation ? ` • ${emp.designation}` : ""}
+                                  {emp.team_name || emp.department || "Unassigned"}
+                                  {` • ${formatRoleName(emp.role)}`}
+                                  {emp.designation && emp.designation.toLowerCase() !== formatRoleName(emp.role).toLowerCase()
+                                    ? ` • ${emp.designation}`
+                                    : ""}
                                 </span>
                               </div>
                             </div>

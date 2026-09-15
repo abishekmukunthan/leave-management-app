@@ -94,6 +94,11 @@ describe("POST /api/leaves - Apply Leave Controller", () => {
       quota_warning_message: null,
       quotaDetails: { remaining: 10 },
     });
+    vi.spyOn(leaveDao, "getSubstituteUserById").mockResolvedValue({
+      id: "sub-456",
+      is_active: true,
+      role: "employee",
+    });
     vi.spyOn(leaveDao, "createLeaveWithSubstitute").mockResolvedValue({
       id: "leave-999",
       employee_id: "user-123",
