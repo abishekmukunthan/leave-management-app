@@ -1234,14 +1234,14 @@ export const superiorDao = {
         }
       }
 
-      // 5. Update target user role and team
+      // 5. Update target user role (only role is set to team_admin; home team_id remains untouched)
       await client.query(
-        "UPDATE users SET role = 'team_admin', team_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-        [teamId, userId]
+        "UPDATE users SET role = 'team_admin', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+        [userId]
       );
       await client.query(
-        "UPDATE employee_profiles SET designation = 'Team Lead', department = $1, team = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND designation IN ('Employee', 'Staff', '')",
-        [targetTeam.name, userId]
+        "UPDATE employee_profiles SET designation = 'Team Lead', updated_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND designation IN ('Employee', 'Staff', '')",
+        [userId]
       );
 
       // 6. Update team's team_admin_id

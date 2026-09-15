@@ -2406,7 +2406,7 @@ export const ConfigurationPage = () => {
         <div className="modal-backdrop" onClick={() => setMoveMemberModal({ ...moveMemberModal, isOpen: false })}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "460px" }}>
             <div className="modal-header">
-              <h2>Move Employee to Team</h2>
+              <h2>Change Team Membership</h2>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -2423,12 +2423,17 @@ export const ConfigurationPage = () => {
                 </div>
               )}
               <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                <ArrowRightLeft size={24} style={{ color: "#f59e0b", flexShrink: 0, marginTop: "2px" }} />
-                <p style={{ fontSize: "0.875rem", color: "#334155", lineHeight: 1.5, margin: 0 }}>
-                  <strong>{moveMemberModal.candidate.name}</strong> currently belongs to{" "}
-                  <strong>{moveMemberModal.candidate.current_team_name || "another team"}</strong>. Do you want to
-                  move them to <strong>{moveMemberModal.team?.name}</strong>?
-                </p>
+                <ArrowRightLeft size={24} style={{ color: "#3b82f6", flexShrink: 0, marginTop: "2px" }} />
+                <div>
+                  <p style={{ fontSize: "0.875rem", color: "#334155", lineHeight: 1.5, margin: 0 }}>
+                    <strong>{moveMemberModal.candidate.name}</strong> is currently a member of{" "}
+                    <strong>{moveMemberModal.candidate.current_team_name || "another team"}</strong>. Move their team membership to{" "}
+                    <strong>{moveMemberModal.team?.name}</strong>?
+                  </p>
+                  <p style={{ fontSize: "0.8125rem", color: "#64748b", margin: "8px 0 0 0", lineHeight: 1.4 }}>
+                    Their Team In-charge assignments will not be affected.
+                  </p>
+                </div>
               </div>
             </div>
             <div className="modal-footer">
@@ -2446,7 +2451,7 @@ export const ConfigurationPage = () => {
                 onClick={handleConfirmMoveMember}
                 disabled={moveMemberModal.isSubmitting}
               >
-                {moveMemberModal.isSubmitting ? "Moving..." : "Move Employee"}
+                {moveMemberModal.isSubmitting ? "Moving..." : "Move Membership"}
               </button>
             </div>
           </div>
