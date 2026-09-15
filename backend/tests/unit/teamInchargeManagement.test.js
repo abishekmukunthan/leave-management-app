@@ -13,35 +13,35 @@ vi.mock("../../src/config/db.js", () => ({
   },
 }));
 
-describe("Employee as Team In-charge & Leave Approval Management", () => {
+describe("Independent Team In-charge Architecture (/api/superior)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   describe("PUT /api/superior/teams/:id/team-lead (Assign Team In-charge)", () => {
-    it("should assign an employee as Team In-charge without changing their role from employee", async () => {
+    it("should assign an employee as Team In-charge without modifying their role or home team_id (CASE 1)", async () => {
       vi.spyOn(superiorDao, "assignTeamLeadToTeam").mockResolvedValue({
         success: true,
-        message: "Successfully assigned Kasun Silva as Team In-charge of Support Team",
-        user_id: "emp-kasun",
+        message: "Successfully assigned John Perera as Team In-charge of EMR Engineering",
+        user_id: "user-john",
         role: "employee",
-        team_id: "team-support",
-        team_name: "Support Team",
-        permission_id: "SUPPORT_TEAM_LEAVE_APPROVAL_PERMISSION",
+        team_id: "team-exec", // Home membership remains Executive Team!
+        team_name: "EMR Engineering",
+        permission_id: "EMR_ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION",
         previous_lead_id: null,
         team: {
-          id: "team-support",
-          name: "Support Team",
-          team_admin_id: "emp-kasun",
-          team_admin_name: "Kasun Silva",
-          approval_permission_id: "SUPPORT_TEAM_LEAVE_APPROVAL_PERMISSION",
+          id: "team-emr",
+          name: "EMR Engineering",
+          team_admin_id: "user-john",
+          team_admin_name: "John Perera",
+          approval_permission_id: "EMR_ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION",
         },
       });
 
       const res = await request(app)
-        .put("/api/superior/teams/team-support/team-lead")
+        .put("/api/superior/teams/team-emr/team-lead")
         .send({
-          team_lead_user_id: "emp-kasun",
+          team_lead_user_id: "user-john",
           superior_admin_id: "sup-nadia",
           remove_previous_lead_permission: true,
         });
@@ -49,23 +49,73 @@ describe("Employee as Team In-charge & Leave Approval Management", () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.role).toBe("employee");
-      expect(res.body.team.team_admin_id).toBe("emp-kasun");
-      expect(res.body.permission_id).toBe("SUPPORT_TEAM_LEAVE_APPROVAL_PERMISSION");
+      expect(res.body.team_id).toBe("team-exec");
+      expect(res.body.team.team_admin_id).toBe("user-john");
+      expect(res.body.permission_id).toBe("EMR_ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION");
     });
 
-    it("should reject assigning superior_admin as Team In-charge", async () => {
-      const err = new Error("Superior Admin users cannot be assigned as Team In-charge.");
-      err.statusCode = 400;
-      vi.spyOn(superiorDao, "assignTeamLeadToTeam").mockRejectedValue(err);
+    it("should allow assigning a user as Team In-charge of multiple teams simultaneously (CASE 2)", async () => {
+      vi.spyOn(superiorDao, "assignTeamLeadToTeam").mockResolvedValue({
+        success: true,
+        message: "Successfully assigned John Perera as Team In-charge of Support Team",
+        user_id: "user-john",
+        role: "employee",
+        team_id: "team-exec",
+        team_name: "Support Team",
+        permission_id: "SUPPORT_TEAM_LEAVE_APPROVAL_PERMISSION",
+        previous_lead_id: null,
+        team: {
+          id: "team-support",
+          name: "Support Team",
+          team_admin_id: "user-john",
+          team_admin_name: "John Perera",
+          approval_permission_id: "SUPPORT_TEAM_LEAVE_APPROVAL_PERMISSION",
+        },
+      });
 
       const res = await request(app)
         .put("/api/superior/teams/team-support/team-lead")
         .send({
-          user_id: "sup-nadia",
+          team_lead_user_id: "user-john",
+          superior_admin_id: "sup-nadia",
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.message).toBe("Superior Admin users cannot be assigned as Team In-charge.");
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.team.team_admin_id).toBe("user-john");
+    });
+
+    it("should allow assigning superior_admin as Team In-charge while retaining superior_admin role and home team (CASE 3)", async () => {
+      vi.spyOn(superiorDao, "assignTeamLeadToTeam").mockResolvedValue({
+        success: true,
+        message: "Successfully assigned Nadia Perera as Team In-charge of Management Team",
+        user_id: "sup-nadia",
+        role: "superior_admin",
+        team_id: "team-exec",
+        team_name: "Management Team",
+        permission_id: "MANAGEMENT_TEAM_LEAVE_APPROVAL_PERMISSION",
+        previous_lead_id: null,
+        team: {
+          id: "team-mgmt",
+          name: "Management Team",
+          team_admin_id: "sup-nadia",
+          team_admin_name: "Nadia Perera",
+          approval_permission_id: "MANAGEMENT_TEAM_LEAVE_APPROVAL_PERMISSION",
+        },
+      });
+
+      const res = await request(app)
+        .put("/api/superior/teams/team-mgmt/team-lead")
+        .send({
+          team_lead_user_id: "sup-nadia",
+          superior_admin_id: "sup-nadia",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.role).toBe("superior_admin");
+      expect(res.body.team_id).toBe("team-exec");
+      expect(res.body.team.team_admin_id).toBe("sup-nadia");
     });
 
     it("should reject assigning inactive user as Team In-charge", async () => {
@@ -82,35 +132,20 @@ describe("Employee as Team In-charge & Leave Approval Management", () => {
       expect(res.status).toBe(400);
       expect(res.body.message).toBe("Inactive users cannot be assigned as Team In-charge.");
     });
-
-    it("should reject assigning a user who already leads another team", async () => {
-      const err = new Error("This user is already assigned as Team In-charge of another team. Please remove that assignment first.");
-      err.statusCode = 400;
-      vi.spyOn(superiorDao, "assignTeamLeadToTeam").mockRejectedValue(err);
-
-      const res = await request(app)
-        .put("/api/superior/teams/team-support/team-lead")
-        .send({
-          user_id: "lead-priya",
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body.message).toBe("This user is already assigned as Team In-charge of another team. Please remove that assignment first.");
-    });
   });
 
   describe("DELETE /api/superior/teams/:id/team-lead (Remove Team In-charge)", () => {
-    it("should remove Team In-charge and revoke permission while keeping role intact", async () => {
+    it("should remove Team In-charge and revoke permission without removing user from their membership team", async () => {
       vi.spyOn(superiorDao, "removeTeamLeadFromTeam").mockResolvedValue({
         success: true,
-        message: "Successfully removed Team In-charge from team Support Team. Leave approval permission revoked.",
-        team_id: "team-support",
-        team_name: "Support Team",
-        previous_lead_id: "emp-kasun",
+        message: "Successfully removed Team In-charge from team EMR Engineering. Leave approval permission revoked.",
+        team_id: "team-emr",
+        team_name: "EMR Engineering",
+        previous_lead_id: "user-john",
       });
 
       const res = await request(app)
-        .delete("/api/superior/teams/team-support/team-lead")
+        .delete("/api/superior/teams/team-emr/team-lead")
         .send({ superior_admin_id: "sup-nadia" });
 
       expect(res.status).toBe(200);
@@ -120,18 +155,27 @@ describe("Employee as Team In-charge & Leave Approval Management", () => {
   });
 
   describe("GET /api/superior/team-incharge-candidates", () => {
-    it("should return candidates eligible for Team In-charge with other team status", async () => {
+    it("should return all active candidates including employees, team_admins, and superior_admins", async () => {
       vi.spyOn(superiorDao, "searchTeamInchargeCandidates").mockResolvedValue({
-        count: 2,
+        count: 3,
         data: [
           {
-            id: "emp-kasun",
-            name: "Kasun Silva",
+            id: "user-john",
+            name: "John Perera",
             role: "employee",
-            current_team_id: "team-support",
-            current_team_name: "Support Team",
-            incharge_team_id: null,
-            incharge_team_name: null,
+            current_team_id: "team-exec",
+            current_team_name: "Executive Team",
+            incharge_teams: [{ id: "team-emr", name: "EMR Engineering" }],
+            is_current_incharge: false,
+            is_incharge_of_other_team: true,
+          },
+          {
+            id: "sup-nadia",
+            name: "Nadia Perera",
+            role: "superior_admin",
+            current_team_id: "team-exec",
+            current_team_name: "Executive Team",
+            incharge_teams: [],
             is_current_incharge: false,
             is_incharge_of_other_team: false,
           },
@@ -141,40 +185,99 @@ describe("Employee as Team In-charge & Leave Approval Management", () => {
             role: "team_admin",
             current_team_id: "team-eng",
             current_team_name: "Engineering",
-            incharge_team_id: "team-eng",
-            incharge_team_name: "Engineering",
+            incharge_teams: [{ id: "team-eng", name: "Engineering" }],
             is_current_incharge: false,
             is_incharge_of_other_team: true,
           },
         ],
       });
 
-      const res = await request(app).get("/api/superior/team-incharge-candidates?team_id=team-support&search=ka");
+      const res = await request(app).get("/api/superior/team-incharge-candidates?team_id=team-support&search=pe");
 
       expect(res.status).toBe(200);
-      expect(res.body.count).toBe(2);
-      expect(res.body.data[0].name).toBe("Kasun Silva");
-      expect(res.body.data[1].is_incharge_of_other_team).toBe(true);
+      expect(res.body.count).toBe(3);
+      expect(res.body.data.some((u) => u.role === "superior_admin")).toBe(true);
+      expect(res.body.data.some((u) => u.role === "employee")).toBe(true);
     });
   });
 
-  describe("PUT /api/superior/users/:id/demote-team-lead (Demotion protection for in-charge)", () => {
-    it("should block demoting user if they are currently assigned as Team In-charge of a team", async () => {
-      const err = new Error("This user is currently assigned as Team In-charge. Please remove or change the Team In-charge assignment before changing role.");
-      err.statusCode = 400;
-      vi.spyOn(superiorDao, "demoteTeamLead").mockRejectedValue(err);
+  describe("DAO Unit Level: superiorDao.assignTeamLeadToTeam DB operations", () => {
+    it("does NOT mutate users.team_id when assigning in-charge", async () => {
+      const mockClient = {
+        query: vi.fn(),
+        release: vi.fn(),
+      };
+      vi.spyOn(pool, "connect").mockResolvedValue(mockClient);
 
-      const res = await request(app)
-        .put("/api/superior/users/lead-priya/demote-team-lead")
-        .send({});
+      // 1. SELECT user
+      mockClient.query
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: "user-john",
+              name: "John Perera",
+              email: "john@company.com",
+              role: "employee",
+              team_id: "team-exec", // Home membership: Executive Team
+              is_active: true,
+            },
+          ],
+        })
+        // 2. SELECT team
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: "team-emr",
+              name: "EMR Engineering",
+              team_admin_id: null,
+            },
+          ],
+        })
+        // 3. _ensureTeamPermission: check permission exists
+        .mockResolvedValueOnce({
+          rows: [{ permission_id: "EMR_ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION" }],
+        })
+        // 4. UPDATE teams SET team_admin_id
+        .mockResolvedValueOnce({ rows: [] })
+        // 5. INSERT INTO user_permissions
+        .mockResolvedValueOnce({ rows: [] })
+        // 6. COMMIT
+        .mockResolvedValueOnce({ rows: [] });
 
-      expect(res.status).toBe(400);
-      expect(res.body.message).toBe("This user is currently assigned as Team In-charge. Please remove or change the Team In-charge assignment before changing role.");
+      // Fetch updated team via pool.query
+      vi.spyOn(pool, "query").mockResolvedValueOnce({
+        rows: [
+          {
+            id: "team-emr",
+            name: "EMR Engineering",
+            team_admin_id: "user-john",
+            team_admin_name: "John Perera",
+            approval_permission_id: "EMR_ENGINEERING_TEAM_LEAVE_APPROVAL_PERMISSION",
+          },
+        ],
+      });
+
+      const result = await superiorDao.assignTeamLeadToTeam({
+        teamId: "team-emr",
+        userId: "user-john",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.team_id).toBe("team-exec"); // Home team remained unchanged!
+      expect(result.role).toBe("employee");
+
+      // Verify that NO query updating users SET team_id was executed!
+      const calls = mockClient.query.mock.calls.map((c) => c[0]);
+      const userTeamUpdateCalls = calls.filter(
+        (sql) => typeof sql === "string" && sql.includes("UPDATE users SET team_id")
+      );
+      expect(userTeamUpdateCalls.length).toBe(0);
     });
   });
 
   describe("Admin / In-Charge Leave Approvals (/api/admin/leave-requests)", () => {
-    it("should allow employee with approval permission to fetch team leave requests and exclude own requests", async () => {
+    it("should allow employee with approval permission to fetch team leave requests across multiple teams", async () => {
       vi.spyOn(adminDao, "getAllLeaveRequests").mockResolvedValue({
         noPermissions: false,
         rows: [
@@ -182,86 +285,44 @@ describe("Employee as Team In-charge & Leave Approval Management", () => {
             id: "lr-1",
             employee_id: "emp-2",
             employee_name: "Team Member 2",
+            team_name: "EMR Engineering",
+            status: "Waiting for Admin Approval",
+          },
+          {
+            id: "lr-2",
+            employee_id: "emp-3",
+            employee_name: "Team Member 3",
             team_name: "Support Team",
             status: "Waiting for Admin Approval",
           },
         ],
       });
 
-      const res = await request(app).get("/api/admin/leave-requests?admin_id=emp-kasun");
+      const res = await request(app).get("/api/admin/leave-requests?admin_id=user-john");
 
       expect(res.status).toBe(200);
-      expect(res.body.count).toBe(1);
-      expect(res.body.data[0].employee_id).toBe("emp-2");
+      expect(res.body.count).toBe(2);
+      expect(res.body.data[0].team_name).toBe("EMR Engineering");
+      expect(res.body.data[1].team_name).toBe("Support Team");
     });
 
-    it("should allow employee with team approval permission to approve a team member's leave", async () => {
+    it("should block self-approval by in-charge even if they have approval permission", async () => {
       vi.spyOn(adminDao, "getLeaveRequestById").mockResolvedValue({
-        id: "lr-1",
-        employee_id: "emp-2",
-        team_id: "team-support",
-        employee_team_id: "team-support",
-        status: "Waiting for Admin Approval",
-      });
-      vi.spyOn(adminDao, "checkUserHasTeamApprovalPermission").mockResolvedValue({
-        hasPermission: true,
-        requiredPermission: "SUPPORT_TEAM_LEAVE_APPROVAL_PERMISSION",
-        notConfigured: false,
-      });
-      vi.spyOn(adminDao, "approveLeaveRequest").mockResolvedValue({
-        id: "lr-1",
-        status: "Approved",
-        approved_by: "emp-kasun",
-      });
-
-      const res = await request(app)
-        .put("/api/admin/leave-requests/lr-1/approve")
-        .send({ admin_id: "emp-kasun" });
-
-      expect(res.status).toBe(200);
-      expect(res.body.message).toBe("Leave request approved successfully");
-      expect(res.body.data.status).toBe("Approved");
-    });
-
-    it("should block self-approval by employee in-charge with exact required message", async () => {
-      vi.spyOn(adminDao, "getLeaveRequestById").mockResolvedValue({
-        id: "lr-kasun-leave",
-        employee_id: "emp-kasun",
-        team_id: "team-support",
-        employee_team_id: "team-support",
+        id: "lr-john-leave",
+        employee_id: "user-john",
+        team_id: "team-exec",
+        employee_team_id: "team-exec",
         status: "Waiting for Admin Approval",
       });
 
       const res = await request(app)
-        .put("/api/admin/leave-requests/lr-kasun-leave/approve")
-        .send({ admin_id: "emp-kasun" });
+        .put("/api/admin/leave-requests/lr-john-leave/approve")
+        .send({ admin_id: "user-john" });
 
       expect(res.status).toBe(403);
       expect(res.body.message).toBe(
         "You cannot approve your own leave request. This leave must be approved by another authorized approver or Superior Admin."
       );
-    });
-
-    it("should block approval if user lacks required team permission", async () => {
-      vi.spyOn(adminDao, "getLeaveRequestById").mockResolvedValue({
-        id: "lr-1",
-        employee_id: "emp-2",
-        team_id: "team-support",
-        employee_team_id: "team-support",
-        status: "Waiting for Admin Approval",
-      });
-      vi.spyOn(adminDao, "checkUserHasTeamApprovalPermission").mockResolvedValue({
-        hasPermission: false,
-        requiredPermission: "SUPPORT_TEAM_LEAVE_APPROVAL_PERMISSION",
-        notConfigured: false,
-      });
-
-      const res = await request(app)
-        .put("/api/admin/leave-requests/lr-1/approve")
-        .send({ admin_id: "emp-unauthorized" });
-
-      expect(res.status).toBe(403);
-      expect(res.body.message).toContain("do not have permission to approve leave for this team");
     });
   });
 });

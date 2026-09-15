@@ -202,9 +202,17 @@ export const superiorDao = {
         u.team_id,
         COALESCE(t.name, 'Unassigned') AS team_name,
         (SELECT id FROM teams WHERE team_admin_id = u.id LIMIT 1) AS is_team_lead_of_team_id,
-        (SELECT name FROM teams WHERE team_admin_id = u.id LIMIT 1) AS is_team_lead_of_team_name,
+        (SELECT string_agg(name, ', ' ORDER BY name) FROM teams WHERE team_admin_id = u.id) AS is_team_lead_of_team_name,
         (SELECT id FROM teams WHERE team_admin_id = u.id LIMIT 1) AS incharge_of_team_id,
-        (SELECT name FROM teams WHERE team_admin_id = u.id LIMIT 1) AS incharge_of_team_name,
+        (SELECT string_agg(name, ', ' ORDER BY name) FROM teams WHERE team_admin_id = u.id) AS incharge_of_team_name,
+        COALESCE(
+          (
+            SELECT json_agg(json_build_object('id', id, 'name', name) ORDER BY name)
+            FROM teams
+            WHERE team_admin_id = u.id AND COALESCE(is_active, true) = true
+          ),
+          '[]'::json
+        ) AS incharge_teams,
         COALESCE(u.is_active, true) AS is_active,
         COALESCE(u.must_change_password, false) AS must_change_password,
         u.created_by,
@@ -244,6 +252,11 @@ export const superiorDao = {
         ? u.permissions
         : typeof u.permissions === "string"
         ? JSON.parse(u.permissions)
+        : [];
+      u.incharge_teams = Array.isArray(u.incharge_teams)
+        ? u.incharge_teams
+        : typeof u.incharge_teams === "string"
+        ? JSON.parse(u.incharge_teams)
         : [];
       u.approval_permissions_count = parseInt(u.approval_permissions_count, 10) || 0;
       return u;
@@ -330,69 +343,7 @@ export const superiorDao = {
       ]);
       const newUser = userRes.rows[0];
 
-      // If creating as team lead, update team and permissions
-      if (userRole === "team_admin" && teamIdVal) {
-        // Ensure team approval permission exists
-        let permRes = await client.query(
-          "SELECT permission_id FROM team_approval_permissions WHERE team_id = $1",
-          [teamIdVal]
-        );
-        let permId;
-        if (permRes.rows.length > 0) {
-          permId = permRes.rows[0].permission_id;
-        } else {
-          permId = generateTeamPermissionId(teamName);
-          const permDesc = generateTeamPermissionDescription(teamName);
-          await client.query(
-            `INSERT INTO permissions (id, description, permission_type, is_active, created_at, updated_at)
-             VALUES ($1, $2, 'LEAVE_APPROVAL', true, NOW(), NOW())
-             ON CONFLICT (id) DO NOTHING`,
-            [permId, permDesc]
-          );
-          await client.query(
-            `INSERT INTO team_approval_permissions (team_id, permission_id, created_by, created_at, updated_at)
-             VALUES ($1, $2, $3, NOW(), NOW())
-             ON CONFLICT (team_id) DO UPDATE SET permission_id = EXCLUDED.permission_id, updated_at = NOW()`,
-            [teamIdVal, permId, createdByVal]
-          );
-        }
-
-        // If previous lead exists, remove previous lead permission and demote if no other teams led
-        if (previousLeadId && previousLeadId !== newUser.id) {
-          await client.query(
-            "DELETE FROM user_permissions WHERE user_id = $1 AND permission_id = $2",
-            [previousLeadId, permId]
-          );
-          const otherTeams = await client.query(
-            "SELECT COUNT(*) FROM teams WHERE team_admin_id = $1 AND id != $2",
-            [previousLeadId, teamIdVal]
-          );
-          if (parseInt(otherTeams.rows[0].count, 10) === 0) {
-            await client.query(
-              "UPDATE users SET role = 'employee', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
-              [previousLeadId]
-            );
-            await client.query(
-              "UPDATE employee_profiles SET designation = 'Employee', updated_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND designation = 'Team Lead'",
-              [previousLeadId]
-            );
-          }
-        }
-
-        // Update team's team_admin_id
-        await client.query(
-          "UPDATE teams SET team_admin_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-          [newUser.id, teamIdVal]
-        );
-
-        // Grant team approval permission to newUser
-        await client.query(
-          `INSERT INTO user_permissions (user_id, permission_id, assigned_by, assigned_at)
-           VALUES ($1, $2, $3, NOW())
-           ON CONFLICT (user_id, permission_id) DO NOTHING`,
-          [newUser.id, permId, createdByVal]
-        );
-      }
+      // Team selection represents membership only; Team In-charge assignment is managed independently.
 
       // Grant all existing permissions to Superior Admin users so they have global access
       if (isSuperior) {
@@ -822,21 +773,6 @@ export const superiorDao = {
           err.statusCode = 400;
           throw err;
         }
-        if (leadUser.role === "superior_admin") {
-          const err = new Error("Superior Admin users cannot be assigned as Team In-charge.");
-          err.statusCode = 400;
-          throw err;
-        }
-        // Check if already in-charge of another team
-        const otherLead = await client.query(
-          "SELECT id, name FROM teams WHERE team_admin_id = $1",
-          [adminIdVal]
-        );
-        if (otherLead.rows.length > 0) {
-          const err = new Error("This user is already assigned as Team In-charge of another team. Please remove that assignment first.");
-          err.statusCode = 400;
-          throw err;
-        }
       }
 
       const insertQuery = `
@@ -875,12 +811,8 @@ export const superiorDao = {
         [permId]
       );
 
-      // If team_admin_id provided, assign user to this team and grant team approval permission without modifying role
+      // If team_admin_id provided, grant team approval permission without modifying membership team_id or role
       if (adminIdVal) {
-        await client.query(
-          "UPDATE users SET team_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-          [newTeam.id, adminIdVal]
-        );
         await client.query(
           `INSERT INTO user_permissions (user_id, permission_id, assigned_by, assigned_at)
            VALUES ($1, $2, (SELECT id FROM users WHERE role = 'superior_admin' LIMIT 1), CURRENT_TIMESTAMP)
@@ -955,12 +887,7 @@ export const superiorDao = {
       const res = await client.query(updateQuery, [teamNameVal, adminIdVal, isActiveVal, teamId]);
       const updatedTeam = res.rows[0];
 
-      if (adminIdVal) {
-        await client.query(
-          "UPDATE users SET team_id = $1, role = CASE WHEN role = 'employee' THEN 'team_admin' ELSE role END, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-          [updatedTeam.id, adminIdVal]
-        );
-      }
+      // Updating team in-charge does not alter user team membership or role.
 
       await client.query("COMMIT");
       return updatedTeam;
@@ -1485,7 +1412,7 @@ export const superiorDao = {
     try {
       await client.query("BEGIN");
 
-      // 1. Verify user
+      // 1. Verify user exists and is active
       const userRes = await client.query(
         "SELECT id, name, email, role, team_id, COALESCE(is_active, true) AS is_active FROM users WHERE id = $1",
         [userId]
@@ -1498,11 +1425,6 @@ export const superiorDao = {
       const targetUser = userRes.rows[0];
       if (!targetUser.is_active) {
         const err = new Error("Inactive users cannot be assigned as Team In-charge.");
-        err.statusCode = 400;
-        throw err;
-      }
-      if (targetUser.role === "superior_admin") {
-        const err = new Error("Superior Admin users cannot be assigned as Team In-charge.");
         err.statusCode = 400;
         throw err;
       }
@@ -1520,43 +1442,27 @@ export const superiorDao = {
       const targetTeam = teamRes.rows[0];
       const previousLeadId = targetTeam.team_admin_id;
 
-      // 3. Check if target user is already in-charge of another team
-      const otherTeamsRes = await client.query(
-        "SELECT id, name FROM teams WHERE team_admin_id = $1 AND id != $2",
-        [userId, teamId]
-      );
-      if (otherTeamsRes.rows.length > 0) {
-        const err = new Error("This user is already assigned as Team In-charge of another team. Please remove that assignment first.");
-        err.statusCode = 400;
-        throw err;
-      }
-
-      // 4. Ensure team approval permission exists
+      // 3. Ensure team approval permission exists
       const permId = await this._ensureTeamPermission(client, teamId, performedBy);
 
-      // 5. Handle previous in-charge if different
+      // 4. Handle previous in-charge if different
       if (previousLeadId && String(previousLeadId) !== String(userId)) {
         if (removePreviousLeadPermission) {
+          // Do not delete permission if previous lead is a superior admin (they retain global admin permissions)
           await client.query(
-            "DELETE FROM user_permissions WHERE user_id = $1 AND permission_id = $2",
+            "DELETE FROM user_permissions WHERE user_id = $1 AND permission_id = $2 AND (SELECT role FROM users WHERE id = $1) != 'superior_admin'",
             [previousLeadId, permId]
           );
         }
       }
 
-      // 6. Update target user team_id (DO NOT change role, role remains employee or team_admin)
-      await client.query(
-        "UPDATE users SET team_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-        [teamId, userId]
-      );
-
-      // 7. Update team's team_admin_id
+      // 5. Update team's team_admin_id (DO NOT mutate target user's users.team_id or role!)
       await client.query(
         "UPDATE teams SET team_admin_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
         [userId, teamId]
       );
 
-      // 8. Grant leave approval permission to target user
+      // 6. Grant leave approval permission to target user
       await client.query(
         `INSERT INTO user_permissions (user_id, permission_id, assigned_by, assigned_at)
          VALUES ($1, $2, $3, NOW())
@@ -1587,7 +1493,7 @@ export const superiorDao = {
         message: `Successfully assigned ${targetUser.name} as Team In-charge of ${targetTeam.name}`,
         user_id: userId,
         role: targetUser.role,
-        team_id: teamId,
+        team_id: targetUser.team_id,
         team_name: targetTeam.name,
         permission_id: permId,
         previous_lead_id: previousLeadId,
@@ -1601,7 +1507,7 @@ export const superiorDao = {
     }
   },
 
-  // Remove Team In-charge from Team (revokes approval permission without altering user role)
+  // Remove Team In-charge from Team (revokes approval permission without altering user role or membership)
   async removeTeamLeadFromTeam({ teamId, performedBy = null }) {
     const client = await pool.connect();
     try {
@@ -1624,13 +1530,13 @@ export const superiorDao = {
         throw err;
       }
 
-      // 1. Clear team_admin_id
+      // 1. Clear team_admin_id (DO NOT touch users.team_id)
       await client.query(
         "UPDATE teams SET team_admin_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
         [teamId]
       );
 
-      // 2. Remove team approval permission from previous in-charge
+      // 2. Remove team approval permission from previous in-charge (except superior_admin)
       const permRes = await client.query(
         "SELECT permission_id FROM team_approval_permissions WHERE team_id = $1",
         [teamId]
@@ -1638,7 +1544,7 @@ export const superiorDao = {
       if (permRes.rows.length > 0) {
         const permId = permRes.rows[0].permission_id;
         await client.query(
-          "DELETE FROM user_permissions WHERE user_id = $1 AND permission_id = $2",
+          "DELETE FROM user_permissions WHERE user_id = $1 AND permission_id = $2 AND (SELECT role FROM users WHERE id = $1) != 'superior_admin'",
           [previousLeadId, permId]
         );
       }
@@ -1660,7 +1566,7 @@ export const superiorDao = {
     }
   },
 
-  // Search Team In-charge Candidates (allows active employees and team_admin, excludes superior_admin)
+  // Search Team In-charge Candidates (allows active employees, team_admin, superior_admin)
   async searchTeamInchargeCandidates(teamId = null, searchText = "") {
     let query = `
       SELECT 
@@ -1671,8 +1577,19 @@ export const superiorDao = {
         u.role,
         u.team_id AS current_team_id,
         t.name AS current_team_name,
-        (SELECT id FROM teams WHERE team_admin_id = u.id LIMIT 1) AS incharge_team_id,
-        (SELECT name FROM teams WHERE team_admin_id = u.id LIMIT 1) AS incharge_team_name,
+        COALESCE(
+          (
+            SELECT json_agg(json_build_object('id', t_sub.id, 'name', t_sub.name) ORDER BY t_sub.name)
+            FROM teams t_sub
+            WHERE t_sub.team_admin_id = u.id AND COALESCE(t_sub.is_active, true) = true
+          ),
+          '[]'::json
+        ) AS incharge_teams,
+        (
+          SELECT string_agg(t_sub.name, ', ' ORDER BY t_sub.name)
+          FROM teams t_sub
+          WHERE t_sub.team_admin_id = u.id AND COALESCE(t_sub.is_active, true) = true
+        ) AS incharge_team_names,
         ep.designation,
         ep.department,
         COALESCE(u.is_active, true) AS is_active
@@ -1680,7 +1597,7 @@ export const superiorDao = {
       LEFT JOIN teams t ON u.team_id = t.id
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
       WHERE COALESCE(u.is_active, true) = true
-        AND u.role IN ('employee', 'team_admin', 'admin')
+        AND u.role IN ('employee', 'team_admin', 'superior_admin', 'admin')
     `;
     const params = [];
     if (searchText && searchText.trim()) {
@@ -1701,8 +1618,13 @@ export const superiorDao = {
     const res = await pool.query(query, params);
 
     const candidates = res.rows.map((u) => {
-      const isCurrentIncharge = Boolean(teamId && u.incharge_team_id === teamId);
-      const isInchargeOfOther = Boolean(u.incharge_team_id && (!teamId || u.incharge_team_id !== teamId));
+      const inchargeTeams = Array.isArray(u.incharge_teams)
+        ? u.incharge_teams
+        : typeof u.incharge_teams === "string"
+        ? JSON.parse(u.incharge_teams)
+        : [];
+      const isCurrentIncharge = Boolean(teamId && inchargeTeams.some((t) => String(t.id) === String(teamId)));
+      const otherTeams = inchargeTeams.filter((t) => !teamId || String(t.id) !== String(teamId));
       return {
         id: u.id,
         name: u.name,
@@ -1711,13 +1633,15 @@ export const superiorDao = {
         role: u.role,
         current_team_id: u.current_team_id,
         current_team_name: u.current_team_name,
-        incharge_team_id: u.incharge_team_id,
-        incharge_team_name: u.incharge_team_name,
+        incharge_teams: inchargeTeams,
+        incharge_team_id: inchargeTeams[0]?.id || null,
+        incharge_team_name: u.incharge_team_names || null,
         designation: u.designation,
         department: u.department,
         is_active: u.is_active,
         is_current_incharge: isCurrentIncharge,
-        is_incharge_of_other_team: isInchargeOfOther,
+        is_incharge_of_other_team: otherTeams.length > 0,
+        other_incharge_teams: otherTeams,
       };
     });
 
@@ -1901,7 +1825,6 @@ export const superiorDao = {
 
     const candidates = res.rows.map((u) => {
       const isAlreadyMember = u.current_team_id === teamId;
-      const isLeadingOtherTeam = Boolean(u.leads_team_id && u.leads_team_id !== teamId);
       let can_add = true;
       let requires_move_confirmation = false;
       let warning = null;
@@ -1909,9 +1832,6 @@ export const superiorDao = {
       if (isAlreadyMember) {
         can_add = false;
         warning = "User is already a member of this team.";
-      } else if (isLeadingOtherTeam) {
-        can_add = false;
-        warning = `This user is currently a Team Lead of ${u.leads_team_name || "another team"}. Please change their Team Lead assignment first.`;
       } else if (u.current_team_id) {
         requires_move_confirmation = true;
         warning = `This employee currently belongs to ${u.current_team_name || "another team"}.`;
@@ -1995,12 +1915,6 @@ export const superiorDao = {
         throw err;
       }
 
-      // If user is team_admin leading another team
-      if (user.leads_team_id && user.leads_team_id !== teamId) {
-        const err = new Error("This user is currently a Team Lead of another team. Please change their Team Lead assignment first.");
-        err.statusCode = 400;
-        throw err;
-      }
 
       // If user belongs to another team and confirmMove is not true -> 409
       if (user.team_id && user.team_id !== teamId && !confirmMove) {

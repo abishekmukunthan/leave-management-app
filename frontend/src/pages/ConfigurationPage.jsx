@@ -933,9 +933,9 @@ export const ConfigurationPage = () => {
     }
   };
 
-  // Filter team admin candidates from allUsers
+  // Filter team admin candidates from allUsers (all active users: employee, team_admin, superior_admin)
   const teamAdminCandidates = allUsers.filter(
-    (u) => u.is_active !== false && u.role !== "superior_admin"
+    (u) => u.is_active !== false
   );
 
   return (
@@ -1740,21 +1740,26 @@ export const ConfigurationPage = () => {
                       ? inchargeCandidates
                       : teamAdminCandidates
                     ).map((u) => {
-                      const isEmployee = u.role === "employee";
-                      const roleLabel = isEmployee ? "Employee" : "Team Lead";
-                      const isOtherLead = u.is_incharge_of_other_team;
+                      const roleLabel =
+                        u.role === "superior_admin"
+                          ? "Superior Admin"
+                          : u.role === "employee"
+                          ? "Employee"
+                          : "Team Lead";
+                      const otherLeadNames =
+                        u.incharge_team_name ||
+                        (u.incharge_teams && u.incharge_teams.map((t) => t.name).join(", "));
                       return (
                         <option
                           key={u.id}
                           value={u.id}
-                          disabled={isOtherLead}
                         >
-                          {u.name} ({u.email}) — [{roleLabel}] {u.current_team_name ? `• Current: ${u.current_team_name}` : "• Unassigned"} {isOtherLead ? `[Already leading ${u.current_team_name}]` : ""}
+                          {u.name} ({u.email}) — [{roleLabel}] {u.current_team_name ? `• Member of: ${u.current_team_name}` : "• Unassigned"} {otherLeadNames ? `• Supervises: ${otherLeadNames}` : ""}
                         </option>
                       );
                     })}
                   </select>
-                  {/* Warning note if selected user currently belongs to another team */}
+                  {/* Info note if selected user currently belongs to a team */}
                   {(() => {
                     const sel = (inchargeCandidates.length > 0 ? inchargeCandidates : allUsers).find(
                       (c) => c.id === createTeamForm.team_admin_id
@@ -1777,7 +1782,7 @@ export const ConfigurationPage = () => {
                         >
                           <Info size={14} style={{ flexShrink: 0 }} />
                           <span>
-                            This user currently belongs to <strong>{sel.current_team_name}</strong>. Assigning them as Team In-charge will move them to this team.
+                            This user is a member of <strong>{sel.current_team_name}</strong>. Assigning them as Team In-charge will not change their team membership.
                           </span>
                         </div>
                       );
@@ -2837,25 +2842,32 @@ export const ConfigurationPage = () => {
                     <option value="">-- Choose an employee or lead --</option>
                     {(inchargeCandidates.length > 0
                       ? inchargeCandidates
-                      : allUsers.filter((u) => u.role !== "superior_admin" && u.is_active !== false)
+                      : allUsers.filter((u) => u.is_active !== false)
                     ).map((u) => {
-                      const isEmp = u.role === "employee";
-                      const isOtherLead = u.is_incharge_of_other_team;
+                      const roleLabel =
+                        u.role === "superior_admin"
+                          ? "Superior Admin"
+                          : u.role === "employee"
+                          ? "Employee"
+                          : "Team Lead";
+                      const otherLeadNames =
+                        u.incharge_team_name ||
+                        (u.incharge_teams && u.incharge_teams.map((t) => t.name).join(", "));
                       return (
-                        <option key={u.id} value={u.id} disabled={isOtherLead}>
-                          {u.name} ({u.email}) — [{isEmp ? "Employee" : "Team Lead"}] {u.current_team_name ? `• Current: ${u.current_team_name}` : "• Unassigned"} {isOtherLead ? `[Already leading ${u.current_team_name}]` : ""}
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.email}) — [{roleLabel}] {u.current_team_name ? `• Member of: ${u.current_team_name}` : "• Unassigned"} {otherLeadNames ? `• Supervises: ${otherLeadNames}` : ""}
                         </option>
                       );
                     })}
                   </select>
                 </div>
 
-                {/* Info if moving user from another team */}
+                {/* Info if user belongs to another team */}
                 {(() => {
                   const selUser = (inchargeCandidates.length > 0 ? inchargeCandidates : allUsers).find(
                     (u) => String(u.id) === String(assignLeadModal.selectedUserId)
                   );
-                  if (selUser && selUser.current_team_name && selUser.current_team_name !== assignLeadModal.team.name) {
+                  if (selUser && selUser.current_team_name) {
                     return (
                       <div
                         style={{
@@ -2872,7 +2884,7 @@ export const ConfigurationPage = () => {
                       >
                         <Info size={15} style={{ flexShrink: 0 }} />
                         <span>
-                          This user currently belongs to <strong>{selUser.current_team_name}</strong>. Assigning them as Team In-charge will move them to this team.
+                          This user is a member of <strong>{selUser.current_team_name}</strong>. Assigning them as Team In-charge will not change their team membership.
                         </span>
                       </div>
                     );
