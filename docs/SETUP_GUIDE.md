@@ -48,24 +48,18 @@ Open your PostgreSQL terminal (`psql`) or database management client (pgAdmin / 
 CREATE DATABASE leave_management_db;
 ```
 
-### Step 2: Run Base Schema & Seed Scripts
-Execute the SQL schema and seed files from the `backend/src/config/` directory:
+### Step 2: Initialize Database & Run Migrations
+From the `backend/` directory:
 
 ```bash
-# Navigate to backend directory
-cd backend
+# 1. Initialize schema (Fresh/Local setup only)
+npm run db:init
 
-# Execute Base Schema
-psql -U postgres -d leave_management_db -f src/config/schema.sql
+# 2. Apply incremental migrations
+npm run migrate
 
-# Execute Migrations in sequence
-psql -U postgres -d leave_management_db -f src/config/team_workflow_migration.sql
-psql -U postgres -d leave_management_db -f src/config/auth_user_management_migration.sql
-psql -U postgres -d leave_management_db -f src/config/configuration_management_migration.sql
-psql -U postgres -d leave_management_db -f src/config/paycut_leave_migration.sql
-
-# Execute Initial Seed Data
-psql -U postgres -d leave_management_db -f src/config/seed.sql
+# 3. (Optional) Seed demo users and data (Non-production only)
+npm run db:seed
 ```
 
 ---

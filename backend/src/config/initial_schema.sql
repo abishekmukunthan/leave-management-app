@@ -1,3 +1,11 @@
+-- ============================================================================
+-- WARNING: THIS SCRIPT IS FOR INITIAL DATABASE CREATION ONLY!
+-- DO NOT RUN AGAINST AN EXISTING PRODUCTION DATABASE.
+-- RUNNING THIS SCRIPT WILL DROP AND RECREATE ALL CORE TABLES AND WIPE DATA.
+-- Use 'npm run db:init' only on a brand new, empty local or test database.
+-- Use 'npm run migrate' for safe, non-destructive incremental migrations.
+-- ============================================================================
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -14,6 +22,7 @@ CREATE TABLE teams (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) UNIQUE NOT NULL,
     team_admin_id UUID,
+    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

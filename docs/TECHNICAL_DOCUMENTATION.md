@@ -70,11 +70,17 @@ leave-management-app/
 │   ├── src/
 │   │   ├── config/
 │   │   │   ├── db.js                              # PostgreSQL connection pool configuration
-│   │   │   ├── schema.sql                         # Base database schema definitions
-│   │   │   ├── seed.sql                           # Seed data for initial users, teams, and entitlements
+│   │   │   ├── initial_schema.sql                 # Base database schema definitions (initial setup only)
+│   │   │   ├── initDb.js                          # Database initialization script (with production guard)
+│   │   │   ├── seedDb.js                          # Database seeder script (with production guard)
+│   │   │   ├── runMigrations.js                   # Safe incremental migration runner with schema_migrations tracking
+│   │   │   ├── seed.sql                           # Seed data for demo users, teams, and entitlements
 │   │   │   ├── auth_user_management_migration.sql # User management migration script
 │   │   │   ├── configuration_management_migration.sql # Teams, Leave Types & Entitlements migration
+│   │   │   ├── permission_management_migration.sql# Permission approval migration script
 │   │   │   ├── paycut_leave_migration.sql         # Paycut leave columns migration
+│   │   │   ├── time_permission_time_range_migration.sql # Time range migration
+│   │   │   ├── fix_priyadharshini_membership.sql  # Team membership migration
 │   │   │   └── team_workflow_migration.sql        # Team approval workflow migration
 │   │   ├── controllers/
 │   │   │   ├── adminController.js                 # Team Admin approval & request management
