@@ -24,26 +24,41 @@ export const EmployeeDashboard = () => {
   const { currentUser, loggedInUser } = useLeave();
 
   // Determine which user's data to show
-  const applicantId = loggedInUser ? loggedInUser.id : DEMO_USERS.EMPLOYEE_APPLICANT.id;
-  const applicantName = loggedInUser ? loggedInUser.name : DEMO_USERS.EMPLOYEE_APPLICANT.name;
+  const activeUser = loggedInUser || currentUser;
+  const applicantId = activeUser?.id || "";
+  const applicantName = activeUser?.name || activeUser?.fullName || "Employee";
 
   const [leaves, setLeaves] = useState([]);
   const [substituteRequests, setSubstituteRequests] = useState([]);
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
+    if (!applicantId) {
+      setLoading(false);
+      return;
+    }
+
     Promise.allSettled([
       getMyLeaves(applicantId),
       getSubstituteRequests(applicantId),
       getLeaveBalances(applicantId),
     ]).then(([leavesRes, subRes, balRes]) => {
       if (isMounted) {
-        if (leavesRes.status === "fulfilled") setLeaves(leavesRes.value.data || []);
-        if (subRes.status === "fulfilled") setSubstituteRequests(subRes.value.data || []);
+        if (leavesRes.status === "fulfilled") {
+          setLeaves(leavesRes.value.data || []);
+        }
+        if (subRes.status === "fulfilled") {
+          setSubstituteRequests(subRes.value.data || []);
+        }
         if (balRes.status === "fulfilled" && balRes.value) {
           setBalances(balRes.value.data || balRes.value);
+          setLoadError(null);
+        } else if (balRes.status === "rejected") {
+          console.error("Failed to load leave balances:", balRes.reason);
+          setLoadError("Unable to sync live leave balances from server.");
         }
         setLoading(false);
       }
@@ -60,28 +75,41 @@ export const EmployeeDashboard = () => {
   );
 
   const annual = balances?.annual || balances?.annualLeave || {
-    quota: currentUser?.leaveBalances?.annualLeave?.total ?? 15,
+    quota: 15,
     used: 0,
-    remaining: currentUser?.leaveBalances?.annualLeave?.total ?? 15,
+    remaining: 15,
   };
   const sick = balances?.sick || balances?.sickLeave || {
-    quota: currentUser?.leaveBalances?.sickLeave?.total ?? 10,
+    quota: 10,
     used: 0,
-    remaining: currentUser?.leaveBalances?.sickLeave?.total ?? 10,
+    remaining: 10,
   };
   const casual = balances?.casual || balances?.casualLeave || {
-    quota: currentUser?.leaveBalances?.casualLeave?.total ?? 6,
+    quota: 6,
     used: 0,
-    remaining: currentUser?.leaveBalances?.casualLeave?.total ?? 6,
+    remaining: 6,
   };
   const timePerm = balances?.timePermission || {
-    quota: currentUser?.leaveBalances?.timePermission?.total ?? 6,
+    quota: 6,
     used: 0,
-    remaining: currentUser?.leaveBalances?.timePermission?.total ?? 6,
+    remaining: 6,
   };
 
   return (
     <div className="dashboard-page">
+      {/* Error / Offline sync banner if API failed */}
+      {loadError && (
+        <div className="alert-card alert-warning" style={{ marginBottom: "1rem" }}>
+          <div className="alert-content">
+            <span className="alert-icon" style={{ display: "inline-flex", alignItems: "center" }}>
+              <Bell size={18} className="text-amber" />
+            </span>
+            <div>
+              <strong>Sync Notice:</strong> {loadError} Showing standard 0-consumption quotas.
+            </div>
+          </div>
+        </div>
+      )}
       {/* Pending Substitute Alert */}
       {pendingSubstituteRequests.length > 0 && (
         <div className="alert-card alert-warning">

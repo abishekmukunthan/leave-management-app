@@ -7,20 +7,20 @@ import * as api from "../services/api";
 
 // Mock LeaveContext
 const mockLoggedInUser = {
-  id: "usr-new-emp-001",
-  name: "John Doe",
-  email: "john.doe@company.com",
+  id: "usr-existing-emp-abishek",
+  name: "Abishek Mukunthan",
+  email: "abishek@company.com",
   role: "employee",
-  designation: "Junior Engineer",
+  designation: "Senior Engineer",
   team: "Engineering",
 };
 
 vi.mock("../context/useLeave", () => ({
   useLeave: () => ({
     currentUser: {
-      id: "usr-new-emp-001",
-      fullName: "John Doe",
-      email: "john.doe@company.com",
+      id: "usr-existing-emp-abishek",
+      fullName: "Abishek Mukunthan",
+      email: "abishek@company.com",
       leaveBalances: {
         annualLeave: { used: 0, total: 15, name: "Annual Leave" },
         sickLeave: { used: 0, total: 10, name: "Sick Leave" },
@@ -35,12 +35,12 @@ vi.mock("../context/useLeave", () => ({
   }),
 }));
 
-describe("Leave Balance Dashboard Zero-State & Live Balances", () => {
+describe("Leave Balance Dashboard Zero-State & Live Balances (All Employees)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("should display 0 days consumed and full quota left for new employees with zero leave history", async () => {
+  it("1. Existing employee with no leave history shows 0 days consumed and full quota left", async () => {
     vi.spyOn(api, "getMyLeaves").mockResolvedValue({ data: [] });
     vi.spyOn(api, "getSubstituteRequests").mockResolvedValue({ data: [] });
     vi.spyOn(api, "getLeaveBalances").mockResolvedValue({
@@ -83,7 +83,7 @@ describe("Leave Balance Dashboard Zero-State & Live Balances", () => {
     expect(screen.queryByText("2 hours used this month")).not.toBeInTheDocument();
   });
 
-  it("should display actual approved consumption and reduced remaining days for employees with approved leave", async () => {
+  it("2. Existing employee with approved leave shows actual approved usage and reduced balance", async () => {
     vi.spyOn(api, "getMyLeaves").mockResolvedValue({
       data: [
         {
@@ -112,9 +112,7 @@ describe("Leave Balance Dashboard Zero-State & Live Balances", () => {
     );
 
     await waitFor(() => {
-      // Annual Leave Card shows 2 days consumed and 13 available
       expect(screen.getByText("2 days consumed")).toBeInTheDocument();
-      // Time Permission Card shows 1.5 hours used
       expect(screen.getByText("1.5 hours used this month")).toBeInTheDocument();
 
       const availSpans = Array.from(container.querySelectorAll(".balance-available")).map((el) => el.textContent.trim());
@@ -127,7 +125,36 @@ describe("Leave Balance Dashboard Zero-State & Live Balances", () => {
     });
   });
 
-  it("should render live balances on EmployeeProfilePage", async () => {
+  it("3. When API is unavailable, dashboard falls back to zero consumption with sync notice and NO fake numbers", async () => {
+    vi.spyOn(api, "getMyLeaves").mockRejectedValue(new Error("Network Error"));
+    vi.spyOn(api, "getSubstituteRequests").mockRejectedValue(new Error("Network Error"));
+    vi.spyOn(api, "getLeaveBalances").mockRejectedValue(new Error("Network Error"));
+
+    const { container } = render(
+      <BrowserRouter>
+        <EmployeeDashboard />
+      </BrowserRouter>
+    );
+
+    await waitFor(() => {
+      // Shows sync notice
+      expect(screen.getByText(/Sync Notice:/i)).toBeInTheDocument();
+
+      // Renders 0 consumed (never fake demo numbers 3, 2, 2, 2)
+      expect(screen.getAllByText("0 days consumed")).toHaveLength(3);
+      expect(screen.getByText("0 hours used this month")).toBeInTheDocument();
+
+      const availSpans = Array.from(container.querySelectorAll(".balance-available")).map((el) => el.textContent.trim());
+      expect(availSpans).toContain("15");
+      expect(availSpans).toContain("10");
+      expect(availSpans).toContain("6");
+    });
+
+    expect(screen.queryByText("3 days consumed")).not.toBeInTheDocument();
+    expect(screen.queryByText("2 days consumed")).not.toBeInTheDocument();
+  });
+
+  it("4. EmployeeProfilePage displays genuine balances without fake usage", async () => {
     vi.spyOn(api, "getLeaveBalances").mockResolvedValue({
       data: {
         balancesList: [

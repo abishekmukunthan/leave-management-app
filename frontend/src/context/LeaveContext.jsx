@@ -4,14 +4,16 @@ import { initialCurrentUser, initialLeaves, initialSubstituteRequests, employees
 import { getStoredUser } from "../services/auth";
 
 export const LeaveProvider = ({ children }) => {
-  const [currentUser] = useState(initialCurrentUser);
-  const [leaves, setLeaves] = useState(initialLeaves);
-  const [substituteRequests, setSubstituteRequests] = useState(initialSubstituteRequests);
+  const storedUser = getStoredUser();
+  const [currentUser] = useState(storedUser || initialCurrentUser);
+  const [leaves, setLeaves] = useState([]);
+  const [substituteRequests, setSubstituteRequests] = useState([]);
   const [employees] = useState(employeesList);
   const [toastMessage, setToastMessage] = useState(null);
 
   // The actual logged-in user from localStorage (used for API calls and display)
   const loggedInUser = getStoredUser();
+
 
   const showToast = (message, type = "success") => {
     setToastMessage({ message, type, id: Date.now() });
