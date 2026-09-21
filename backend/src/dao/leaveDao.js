@@ -9,6 +9,8 @@ export const leaveDao = {
     start_date,
     end_date,
     permission_date,
+    permission_from_time,
+    permission_to_time,
     permission_hours,
     reason,
     requested_units,
@@ -31,6 +33,8 @@ export const leaveDao = {
           start_date,
           end_date,
           permission_date,
+          permission_from_time,
+          permission_to_time,
           permission_hours,
           reason,
           requested_units,
@@ -39,7 +43,7 @@ export const leaveDao = {
           quota_warning_message,
           status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'Waiting for Substitute Approval')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'Waiting for Substitute Approval')
         RETURNING *;
       `;
       const leaveRes = await client.query(leaveInsertQuery, [
@@ -49,6 +53,8 @@ export const leaveDao = {
         start_date,
         end_date,
         permission_date,
+        permission_from_time || null,
+        permission_to_time || null,
         permission_hours,
         reason,
         requested_units || 0,
@@ -94,6 +100,8 @@ export const leaveDao = {
     start_date,
     end_date,
     permission_date,
+    permission_from_time,
+    permission_to_time,
     permission_hours,
     reason,
     requested_units,
@@ -109,6 +117,8 @@ export const leaveDao = {
         start_date,
         end_date,
         permission_date,
+        permission_from_time,
+        permission_to_time,
         permission_hours,
         reason,
         requested_units,
@@ -117,7 +127,7 @@ export const leaveDao = {
         quota_warning_message,
         status
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'Waiting for Admin Approval')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'Waiting for Admin Approval')
       RETURNING *;
     `;
     const result = await pool.query(query, [
@@ -127,6 +137,8 @@ export const leaveDao = {
       start_date,
       end_date,
       permission_date,
+      permission_from_time || null,
+      permission_to_time || null,
       permission_hours,
       reason,
       requested_units || 0,
@@ -152,6 +164,8 @@ export const leaveDao = {
         lr.start_date,
         lr.end_date,
         lr.permission_date,
+        lr.permission_from_time,
+        lr.permission_to_time,
         lr.permission_hours,
         lr.reason,
         lr.status,

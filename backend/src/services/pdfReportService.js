@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { formatTime12Hour } from "../utils/timePermissionHelper.js";
 
 export const pdfReportService = {
   async generateLeaveSummaryPdf(reportData) {
@@ -136,21 +137,33 @@ export const pdfReportService = {
         renderTable({
           title: "2. Employee Leave Details",
           columns: [
-            { header: "Employee Name", key: "employee_name", width: totalW * 0.16 },
-            { header: "Department", key: "department_name", width: totalW * 0.13 },
-            { header: "Leave Type", key: "leave_type", width: totalW * 0.13 },
-            { header: "Type", key: "record_type", width: totalW * 0.11 },
-            { header: "Start Date", key: "start_date", width: totalW * 0.09 },
-            { header: "Days", key: "leave_days_str", width: totalW * 0.06, align: "center" },
-            { header: "Hours", key: "permission_hours_str", width: totalW * 0.07, align: "center" },
-            { header: "Status", key: "status", width: totalW * 0.11 },
-            { header: "Approved By", key: "approved_by", width: totalW * 0.14 },
+            { header: "Employee Name", key: "employee_name", width: totalW * 0.14 },
+            { header: "Department", key: "department_name", width: totalW * 0.11 },
+            { header: "Leave Type", key: "leave_type", width: totalW * 0.11 },
+            { header: "Type", key: "record_type", width: totalW * 0.08 },
+            { header: "Date", key: "start_date", width: totalW * 0.08 },
+            { header: "Time Range", key: "time_range_str", width: totalW * 0.15 },
+            { header: "Days", key: "leave_days_str", width: totalW * 0.05, align: "center" },
+            { header: "Hours", key: "permission_hours_str", width: totalW * 0.06, align: "center" },
+            { header: "Status", key: "status", width: totalW * 0.09 },
+            { header: "Approved By", key: "approved_by", width: totalW * 0.13 },
           ],
-          rows: details.map((d) => ({
-            ...d,
-            leave_days_str: d.record_type === "Time Permission" ? "—" : d.leave_days,
-            permission_hours_str: d.record_type === "Time Permission" ? `${d.permission_hours}h` : "—",
-          })),
+          rows: details.map((d) => {
+            let timeRangeStr = "—";
+            if (d.record_type === "Time Permission") {
+              if (d.permission_from_time && d.permission_to_time) {
+                timeRangeStr = `${formatTime12Hour(d.permission_from_time)} - ${formatTime12Hour(d.permission_to_time)}`;
+              } else {
+                timeRangeStr = "Not recorded";
+              }
+            }
+            return {
+              ...d,
+              time_range_str: timeRangeStr,
+              leave_days_str: d.record_type === "Time Permission" ? "—" : d.leave_days,
+              permission_hours_str: d.record_type === "Time Permission" ? `${d.permission_hours}h` : "—",
+            };
+          }),
           emptyText: "No employee leave records found in the selected date range.",
         });
 

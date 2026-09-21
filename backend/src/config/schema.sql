@@ -70,10 +70,9 @@ CREATE TABLE leave_requests (
     start_date DATE,
     end_date DATE,
     permission_date DATE,
-    permission_hours VARCHAR(50) CHECK (
-        permission_hours IS NULL OR
-        permission_hours IN ('1 hour', '2 hours', '3 hours')
-    ),
+    permission_from_time TIME,
+    permission_to_time TIME,
+    permission_hours VARCHAR(50),
     reason TEXT NOT NULL,
     status VARCHAR(50) NOT NULL DEFAULT 'Waiting for Substitute Approval' CHECK (status IN (
         'Waiting for Substitute Approval',

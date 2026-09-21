@@ -18,7 +18,14 @@ import {
   getSubstituteEmployees,
   DEMO_USERS,
 } from "../services/api";
-import { calculateInclusiveDays, formatDateOnly } from "../utils/dateUtils";
+import {
+  calculateInclusiveDays,
+  formatDateOnly,
+  parseTimeToMinutes,
+  getFromTimeOptions,
+  getToTimeOptions,
+  calculateTimePermissionDuration,
+} from "../utils/dateUtils";
 
 export const ApplyLeavePage = () => {
   const navigate = useNavigate();
@@ -31,7 +38,8 @@ export const ApplyLeavePage = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [permissionDate, setPermissionDate] = useState("");
-  const [permissionHours, setPermissionHours] = useState("1 hour");
+  const [permissionFromTime, setPermissionFromTime] = useState("10:00");
+  const [permissionToTime, setPermissionToTime] = useState("11:30");
   const [reason, setReason] = useState("");
   const [substituteId, setSubstituteId] = useState("");
   const [selectedSubstitute, setSelectedSubstitute] = useState(null);
@@ -128,14 +136,37 @@ export const ApplyLeavePage = () => {
     setIsDropdownOpen(false);
   };
 
+  const fromTimeOptions = getFromTimeOptions();
+  const toTimeOptions = getToTimeOptions(permissionFromTime);
+  const durationInfo = calculateTimePermissionDuration(permissionFromTime, permissionToTime);
+
+  const handleFromTimeChange = (newFrom) => {
+    setPermissionFromTime(newFrom);
+    const validToOptions = getToTimeOptions(newFrom);
+    if (!validToOptions.some((opt) => opt.value === permissionToTime)) {
+      const fromMin = parseTimeToMinutes(newFrom) || 0;
+      const defaultTo =
+        validToOptions.find((opt) => opt.minutes === fromMin + 60) ||
+        validToOptions[0];
+      setPermissionToTime(defaultTo ? defaultTo.value : "");
+    }
+  };
+
   const daysCount = isTimePermission ? null : calculateInclusiveDays(startDate, endDate, leaveType);
 
   const submitApplication = async (confirmPaycut = false) => {
     setErrorMsg("");
 
     if (isTimePermission) {
-      if (!permissionDate) { setErrorMsg("Please select the permission date."); return; }
-      if (!permissionHours) { setErrorMsg("Please select the permission hours."); return; }
+      if (!permissionDate) {
+        setErrorMsg("Please select the permission date.");
+        return;
+      }
+      const durCheck = calculateTimePermissionDuration(permissionFromTime, permissionToTime);
+      if (!durCheck.isValid) {
+        setErrorMsg(durCheck.error || "Please select valid From and To times.");
+        return;
+      }
     } else {
       if (!startDate || !endDate) { setErrorMsg("Please select both start and end dates."); return; }
       const cleanStart = formatDateOnly(startDate);
@@ -162,7 +193,9 @@ export const ApplyLeavePage = () => {
         start_date: isTimePermission ? null : formatDateOnly(startDate),
         end_date: isTimePermission ? null : formatDateOnly(endDate),
         permission_date: isTimePermission ? formatDateOnly(permissionDate) : null,
-        permission_hours: isTimePermission ? permissionHours : null,
+        permission_from_time: isTimePermission ? permissionFromTime : null,
+        permission_to_time: isTimePermission ? permissionToTime : null,
+        permission_hours: isTimePermission ? String(durationInfo.hoursFloat) : null,
         reason: reason.trim(),
         substitute_employee_id: substituteId || null,
         assigned_work: assignedWork.trim() || null,
@@ -341,7 +374,7 @@ export const ApplyLeavePage = () => {
 
             {/* 2. Conditional Date / Time Fields */}
             {isTimePermission ? (
-              <div className="form-row-2">
+              <>
                 <div className="form-group">
                   <label htmlFor="permissionDate" className="form-label required">
                     Permission Date
@@ -354,24 +387,85 @@ export const ApplyLeavePage = () => {
                     onChange={(e) => setPermissionDate(e.target.value)}
                     required
                   />
+                  <span className="form-hint">Select the date for time permission.</span>
                 </div>
+
+                <div className="form-row-2">
+                  <div className="form-group">
+                    <label htmlFor="permissionFromTime" className="form-label required">
+                      From Time
+                    </label>
+                    <select
+                      id="permissionFromTime"
+                      className="form-select"
+                      value={permissionFromTime}
+                      onChange={(e) => handleFromTimeChange(e.target.value)}
+                      required
+                    >
+                      <option value="" disabled>Select From Time</option>
+                      {fromTimeOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="form-hint">Available from 8:00 AM to 4:30 PM</span>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="permissionToTime" className="form-label required">
+                      To Time
+                    </label>
+                    <select
+                      id="permissionToTime"
+                      className="form-select"
+                      value={permissionToTime}
+                      onChange={(e) => setPermissionToTime(e.target.value)}
+                      disabled={!permissionFromTime}
+                      required
+                    >
+                      <option value="" disabled>
+                        {permissionFromTime ? "Select To Time" : "Select From Time first"}
+                      </option>
+                      {toTimeOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="form-hint">Min 30 mins, max 2 hrs (latest 5:00 PM)</span>
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label htmlFor="permissionHours" className="form-label required">
-                    Permission Hours
-                  </label>
-                  <select
-                    id="permissionHours"
-                    className="form-select"
-                    value={permissionHours}
-                    onChange={(e) => setPermissionHours(e.target.value)}
-                    required
+                  <label className="form-label">Calculated Duration</label>
+                  <div
+                    id="permissionDurationDisplay"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      padding: "0.625rem 0.875rem",
+                      backgroundColor: durationInfo.isValid ? "#F0FDF4" : "#FEF2F2",
+                      border: `1px solid ${durationInfo.isValid ? "#86EFAC" : "#FECACA"}`,
+                      borderRadius: "6px",
+                      color: durationInfo.isValid ? "#15803D" : "#DC2626",
+                      fontWeight: 600,
+                      fontSize: "0.875rem",
+                    }}
                   >
-                    <option value="1 hour">1 hour</option>
-                    <option value="2 hours">2 hours</option>
-                    <option value="3 hours">3 hours</option>
-                  </select>
+                    <Clock size={16} color={durationInfo.isValid ? "#16A34A" : "#EF4444"} />
+                    <span>
+                      {durationInfo.isValid
+                        ? `Duration: ${durationInfo.durationText}`
+                        : (durationInfo.error || "Select From and To times")}
+                    </span>
+                  </div>
+                  <span className="form-hint">
+                    Duration is automatically calculated and cannot be edited manually.
+                  </span>
                 </div>
-              </div>
+              </>
             ) : (
               <div className="form-row-2">
                 <div className="form-group">
@@ -646,7 +740,7 @@ export const ApplyLeavePage = () => {
                 <strong>Quota Limits:</strong> Exceeding your available quota will trigger a paycut / no-pay warning.
               </li>
               <li>
-                <strong>Time Permission:</strong> Limited to a maximum of 3 hours per request session.
+                <strong>Time Permission:</strong> Between 8:00 AM and 5:00 PM (min 30 mins, max 2 hours).
               </li>
             </ul>
           </div>

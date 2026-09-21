@@ -26,6 +26,8 @@ export const reportDao = {
         lr.start_date::text AS start_date,
         lr.end_date::text AS end_date,
         lr.permission_date::text AS permission_date,
+        lr.permission_from_time::text AS permission_from_time,
+        lr.permission_to_time::text AS permission_to_time,
         lr.permission_hours,
         lr.reason,
         lr.status,
@@ -68,10 +70,10 @@ export const reportDao = {
         if (typeof row.permission_hours === "number") {
           hours = row.permission_hours;
         } else if (typeof row.permission_hours === "string") {
-          const m = row.permission_hours.match(/(\d+)/);
-          if (m) hours = parseInt(m[1], 10);
+          const m = row.permission_hours.match(/([\d.]+)/);
+          if (m) hours = parseFloat(m[1]);
         }
-        permHours = Math.max(1, hours);
+        permHours = Math.max(0.5, hours);
         leaveDays = 0;
       } else {
         if (row.requested_units && Number(row.requested_units) > 0) {
@@ -103,6 +105,8 @@ export const reportDao = {
         end_date: isTimePerm ? "—" : (row.end_date || "—"),
         leave_days: leaveDays,
         permission_hours: permHours,
+        permission_from_time: row.permission_from_time || null,
+        permission_to_time: row.permission_to_time || null,
         substitute_name: row.substitute_name || "Not assigned",
         assigned_work: row.assigned_work || "No assigned work",
         status: row.status,

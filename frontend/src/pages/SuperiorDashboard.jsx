@@ -35,6 +35,8 @@ import {
   formatDateTime,
   formatAppliedDate,
   calculateInclusiveDays,
+  formatTimeRange,
+  calculateTimePermissionDuration,
 } from "../utils/dateUtils";
 
 // Color mapping for department indicators
@@ -196,6 +198,12 @@ export const SuperiorDashboard = () => {
   // Duration text helper
   const getDurationText = (leave) => {
     if (leave.leave_type === "Time Permission") {
+      if (leave.permission_from_time && leave.permission_to_time) {
+        return calculateTimePermissionDuration(
+          leave.permission_from_time,
+          leave.permission_to_time
+        ).durationText;
+      }
       return leave.permission_hours
         ? `${leave.permission_hours} hours`
         : "Time Permission";
@@ -954,7 +962,16 @@ export const SuperiorDashboard = () => {
                             </div>
                           </td>
                           <td>
-                            <span className="pill-duration">{leave.permission_hours || "Time Permission"}</span>
+                            <div>
+                              <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#1E293B" }}>
+                                {leave.permission_from_time && leave.permission_to_time
+                                  ? formatTimeRange(leave.permission_from_time, leave.permission_to_time)
+                                  : "Not recorded"}
+                              </div>
+                              <span className="pill-duration" style={{ marginTop: "0.2rem" }}>
+                                {getDurationText(leave)}
+                              </span>
+                            </div>
                           </td>
                           <td>
                             <span className="substitute-cell">
@@ -1682,20 +1699,37 @@ export const SuperiorDashboard = () => {
 
               <div className="modal-grid-2">
                 <div className="modal-detail-item">
-                  <span className="detail-label">Dates / Schedule</span>
-                  <span className="detail-value">
+                  <span className="detail-label">
+                    {selectedLeave.leave_type === "Time Permission" ? "Permission Date" : "Dates / Schedule"}
+                  </span>
+                  <span className="detail-value font-semibold">
                     {selectedLeave.leave_type === "Time Permission"
-                      ? `${formatDateOnly(selectedLeave.permission_date)} (${selectedLeave.permission_hours || "Time Permission"})`
+                      ? formatDateOnly(selectedLeave.permission_date)
                       : `${formatDateOnly(selectedLeave.start_date)} to ${formatDateOnly(selectedLeave.end_date)}`}
                   </span>
                 </div>
                 <div className="modal-detail-item">
-                  <span className="detail-label">Calculated Duration</span>
+                  <span className="detail-label">
+                    {selectedLeave.leave_type === "Time Permission" ? "Time Permission Range" : "Calculated Duration"}
+                  </span>
+                  <span className="detail-value font-semibold text-blue">
+                    {selectedLeave.leave_type === "Time Permission"
+                      ? (selectedLeave.permission_from_time && selectedLeave.permission_to_time
+                          ? formatTimeRange(selectedLeave.permission_from_time, selectedLeave.permission_to_time)
+                          : "Not recorded")
+                      : getDurationText(selectedLeave)}
+                  </span>
+                </div>
+              </div>
+
+              {selectedLeave.leave_type === "Time Permission" && (
+                <div className="modal-detail-item" style={{ marginTop: "0.25rem" }}>
+                  <span className="detail-label">Duration</span>
                   <span className="detail-value font-semibold text-blue">
                     {getDurationText(selectedLeave)}
                   </span>
                 </div>
-              </div>
+              )}
 
               <div className="modal-detail-item">
                 <span className="detail-label">Designated Substitute</span>

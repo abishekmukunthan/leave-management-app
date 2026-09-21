@@ -1,5 +1,6 @@
 import { leaveDao } from "../dao/leaveDao.js";
 import { checkLeaveQuota } from "../utils/quotaHelper.js";
+import { validateTimePermission } from "../utils/timePermissionHelper.js";
 
 const VALID_LEAVE_TYPES = [
   "Annual Leave",
@@ -32,6 +33,8 @@ export const leaveController = {
         start_date,
         end_date,
         permission_date,
+        permission_from_time,
+        permission_to_time,
         permission_hours,
         reason,
         substitute_employee_id,
@@ -56,22 +59,39 @@ export const leaveController = {
 
       // 2. Validate leave type specifics
       let normalizedPermissionHours = null;
+      let permissionFromTime = null;
+      let permissionToTime = null;
+
       if (leave_type === "Time Permission") {
         if (!permission_date) {
           return res.status(400).json({
             error: "permission_date is required for Time Permission",
           });
         }
-        if (
-          permission_hours === undefined ||
-          permission_hours === null ||
-          !VALID_PERMISSION_HOURS[permission_hours]
-        ) {
+
+        // Validate From and To times (new flow)
+        if (permission_from_time || permission_to_time) {
+          const validation = validateTimePermission(permission_from_time, permission_to_time);
+          if (!validation.isValid) {
+            return res.status(400).json({
+              error: validation.error,
+            });
+          }
+          permissionFromTime = validation.fromTimeNormalized;
+          permissionToTime = validation.toTimeNormalized;
+          normalizedPermissionHours = validation.permissionHours;
+        } else if (permission_hours !== undefined && permission_hours !== null) {
+          // Backward compatibility for legacy tests / requests
+          if (VALID_PERMISSION_HOURS[permission_hours]) {
+            normalizedPermissionHours = VALID_PERMISSION_HOURS[permission_hours];
+          } else {
+            normalizedPermissionHours = String(permission_hours);
+          }
+        } else {
           return res.status(400).json({
-            error: "permission_hours can only be 1, 2, or 3 (e.g. '1 hour', '2 hours', '3 hours')",
+            error: "From Time is required. To Time is required.",
           });
         }
-        normalizedPermissionHours = VALID_PERMISSION_HOURS[permission_hours];
       } else {
         // Normal leave
         if (!start_date || !end_date) {
@@ -144,6 +164,8 @@ export const leaveController = {
         start_date: leave_type === "Time Permission" ? null : start_date,
         end_date: leave_type === "Time Permission" ? null : end_date,
         permission_date: leave_type === "Time Permission" ? permission_date : null,
+        permission_from_time: leave_type === "Time Permission" ? permissionFromTime : null,
+        permission_to_time: leave_type === "Time Permission" ? permissionToTime : null,
         permission_hours: normalizedPermissionHours,
         reason: reason.trim(),
         requested_units: quotaCheck.requested_units,

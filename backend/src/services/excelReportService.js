@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { formatTime12Hour } from "../utils/timePermissionHelper.js";
 
 export const excelReportService = {
   async generateLeaveSummaryWorkbook(reportData) {
@@ -112,7 +113,9 @@ export const excelReportService = {
       { header: "Department / Team", key: "department_name", width: 20 },
       { header: "Leave Type", key: "leave_type", width: 18 },
       { header: "Leave / Time Permission", key: "record_type", width: 22 },
-      { header: "Leave Start Date", key: "start_date", width: 16 },
+      { header: "Permission / Leave Date", key: "start_date", width: 22 },
+      { header: "From Time", key: "from_time", width: 16 },
+      { header: "To Time", key: "to_time", width: 16 },
       { header: "No. of Leave Days", key: "leave_days", width: 18 },
       { header: "Time Permission Hours", key: "permission_hours", width: 22 },
       { header: "Substitute", key: "substitute_name", width: 20 },
@@ -132,12 +135,21 @@ export const excelReportService = {
     });
 
     details.forEach((d, idx) => {
+      let fromTimeDisplay = "—";
+      let toTimeDisplay = "—";
+      if (d.record_type === "Time Permission") {
+        fromTimeDisplay = d.permission_from_time ? formatTime12Hour(d.permission_from_time) : "Not recorded";
+        toTimeDisplay = d.permission_to_time ? formatTime12Hour(d.permission_to_time) : "Not recorded";
+      }
+
       const row = s2.addRow({
         employee_name: d.employee_name,
         department_name: d.department_name,
         leave_type: d.leave_type,
         record_type: d.record_type,
         start_date: d.start_date,
+        from_time: fromTimeDisplay,
+        to_time: toTimeDisplay,
         leave_days: d.record_type === "Time Permission" ? "—" : d.leave_days,
         permission_hours: d.record_type === "Time Permission" ? `${d.permission_hours} hrs` : "—",
         substitute_name: d.substitute_name,

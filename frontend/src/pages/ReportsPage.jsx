@@ -20,6 +20,7 @@ import {
   downloadLeaveSummaryExcel,
   downloadLeaveSummaryPdf,
 } from "../services/api";
+import { formatTimeRange } from "../utils/dateUtils";
 
 export const ReportsPage = () => {
   const { loggedInUser, showToast } = useLeave();
@@ -539,6 +540,13 @@ export const ReportsPage = () => {
                             <span className="font-mono" style={{ fontSize: "0.8125rem" }}>
                               {d.start_date}
                             </span>
+                            {d.record_type === "Time Permission" && (
+                              <div style={{ fontSize: "0.725rem", color: "#64748b", marginTop: "0.15rem" }}>
+                                {d.permission_from_time && d.permission_to_time
+                                  ? formatTimeRange(d.permission_from_time, d.permission_to_time)
+                                  : "Not recorded"}
+                              </div>
+                            )}
                           </td>
                           <td>
                             <span style={{ fontWeight: 600, fontSize: "0.8125rem" }}>

@@ -11,6 +11,7 @@ import {
 import { useLeave } from "../context/useLeave";
 import { getCalendarMonthSummary, getCalendarDayDetails, DEMO_USERS } from "../services/api";
 import { getStoredUser, isSuperiorAdmin } from "../services/auth";
+import { formatTimeRange, calculateTimePermissionDuration } from "../utils/dateUtils";
 
 const MONTH_NAMES = [
   "January",
@@ -420,9 +421,20 @@ export const CalendarPage = () => {
                                           : `${record.start_date} to ${record.end_date}`}
                                       </div>
                                     )}
-                                    {!isLeave && record.permission_hours && (
+                                    {!isLeave && (
                                       <div className="record-detail-subtext">
-                                        {record.permission_hours} {record.permission_hours === 1 ? "hour" : "hours"}
+                                        {record.permission_from_time && record.permission_to_time ? (
+                                          <div>
+                                            <div style={{ fontWeight: 600, color: "#1e293b" }}>
+                                              {formatTimeRange(record.permission_from_time, record.permission_to_time)}
+                                            </div>
+                                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                                              {calculateTimePermissionDuration(record.permission_from_time, record.permission_to_time).durationText}
+                                            </div>
+                                          </div>
+                                        ) : record.permission_hours ? (
+                                          <div>{record.permission_hours} {record.permission_hours === 1 ? "hour" : "hours"}</div>
+                                        ) : null}
                                       </div>
                                     )}
                                   </div>

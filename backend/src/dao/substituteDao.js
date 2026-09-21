@@ -30,6 +30,8 @@ export const substituteDao = {
         lr.start_date,
         lr.end_date,
         lr.permission_date,
+        lr.permission_from_time,
+        lr.permission_to_time,
         lr.permission_hours,
         lr.reason,
         lr.status AS leave_request_status

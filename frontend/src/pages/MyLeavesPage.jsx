@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Plus,
   Calendar,
+  Clock,
   Inbox,
   Check,
   AlertCircle,
@@ -18,6 +19,8 @@ import {
   formatAppliedDate,
   formatDateTime,
   calculateInclusiveDays,
+  formatTimeRange,
+  calculateTimePermissionDuration,
 } from "../utils/dateUtils";
 
 export const MyLeavesPage = () => {
@@ -209,7 +212,19 @@ export const MyLeavesPage = () => {
                                 <Calendar size={12} className="text-muted" />
                                 <span>{formatDateOnly(leave.permission_date)}</span>
                               </div>
-                              <span className="pill-duration">{leave.permission_hours}</span>
+                              <div style={{ fontSize: "0.75rem", color: "#334155", marginTop: "0.2rem", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                <Clock size={11} className="text-muted" />
+                                <span>
+                                  {leave.permission_from_time && leave.permission_to_time
+                                    ? formatTimeRange(leave.permission_from_time, leave.permission_to_time)
+                                    : "Not recorded"}
+                                </span>
+                              </div>
+                              <span className="pill-duration" style={{ marginTop: "0.25rem" }}>
+                                {leave.permission_from_time && leave.permission_to_time
+                                  ? calculateTimePermissionDuration(leave.permission_from_time, leave.permission_to_time).shortDurationText
+                                  : (leave.permission_hours ? `${leave.permission_hours} hrs` : "Time Permission")}
+                              </span>
                             </div>
                           ) : (
                             <div>
@@ -306,9 +321,25 @@ export const MyLeavesPage = () => {
               <div className="modal-detail-item">
                 <span className="detail-label">Duration & Schedule</span>
                 <span className="detail-value">
-                  {selectedLeave.leave_type === "Time Permission"
-                    ? `${formatDateOnly(selectedLeave.permission_date)} (${selectedLeave.permission_hours || "Time Permission"})`
-                    : `${formatDateOnly(selectedLeave.start_date)} to ${formatDateOnly(selectedLeave.end_date)}`}
+                  {selectedLeave.leave_type === "Time Permission" ? (
+                    <div>
+                      <div><strong>Date:</strong> {formatDateOnly(selectedLeave.permission_date)}</div>
+                      <div style={{ marginTop: "0.25rem" }}>
+                        <strong>Time Range:</strong>{" "}
+                        {selectedLeave.permission_from_time && selectedLeave.permission_to_time
+                          ? formatTimeRange(selectedLeave.permission_from_time, selectedLeave.permission_to_time)
+                          : "Not recorded"}
+                      </div>
+                      <div style={{ marginTop: "0.25rem" }}>
+                        <strong>Duration:</strong>{" "}
+                        {selectedLeave.permission_from_time && selectedLeave.permission_to_time
+                          ? calculateTimePermissionDuration(selectedLeave.permission_from_time, selectedLeave.permission_to_time).durationText
+                          : (selectedLeave.permission_hours ? `${selectedLeave.permission_hours} hrs` : "Time Permission")}
+                      </div>
+                    </div>
+                  ) : (
+                    `${formatDateOnly(selectedLeave.start_date)} to ${formatDateOnly(selectedLeave.end_date)}`
+                  )}
                 </span>
               </div>
 

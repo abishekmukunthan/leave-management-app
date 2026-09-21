@@ -7,12 +7,12 @@ export const calculateRequestedUnits = ({ leave_type, start_date, end_date, perm
     if (typeof permission_hours === "number") {
       hours = permission_hours;
     } else if (typeof permission_hours === "string") {
-      const match = permission_hours.match(/(\d+)/);
+      const match = permission_hours.match(/([\d.]+)/);
       if (match) {
-        hours = parseInt(match[1], 10);
+        hours = parseFloat(match[1]);
       }
     }
-    return Math.max(1, hours);
+    return Math.max(0.5, hours);
   }
 
   // Standard leaves or Half Day Leave

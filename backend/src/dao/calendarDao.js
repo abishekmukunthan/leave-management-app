@@ -46,6 +46,8 @@ export const calendarDao = {
         lr.start_date::text AS start_date,
         lr.end_date::text AS end_date,
         lr.permission_date::text AS permission_date,
+        lr.permission_from_time::text AS permission_from_time,
+        lr.permission_to_time::text AS permission_to_time,
         lr.permission_hours,
         u.team_id
       FROM leave_requests lr
@@ -186,6 +188,8 @@ export const calendarDao = {
         COALESCE(t.name, 'Unassigned') AS team_name,
         lr.leave_type,
         lr.permission_date::text AS permission_date,
+        lr.permission_from_time::text AS permission_from_time,
+        lr.permission_to_time::text AS permission_to_time,
         lr.permission_hours,
         lr.reason,
         app_u.name AS approved_by,
@@ -238,6 +242,8 @@ export const calendarDao = {
       start_date: null,
       end_date: null,
       permission_date: p.permission_date || null,
+      permission_from_time: p.permission_from_time || null,
+      permission_to_time: p.permission_to_time || null,
       permission_hours: p.permission_hours != null ? Number(p.permission_hours) : null,
     }));
 

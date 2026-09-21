@@ -239,7 +239,9 @@ describe("Substitute Selection Rules & UI in ApplyLeavePage", () => {
           substitute_employee_id: "sup-nadia",
           leave_type: "Time Permission",
           permission_date: "2026-10-20",
-          permission_hours: "1 hour",
+          permission_from_time: "10:00",
+          permission_to_time: "11:30",
+          permission_hours: "1.5",
           assigned_work: "Coverage for 1 hour",
         })
       );

@@ -13,6 +13,7 @@ const MIGRATION_FILES = [
   "configuration_management_migration.sql",
   "permission_management_migration.sql",
   "paycut_leave_migration.sql",
+  "time_permission_time_range_migration.sql",
 ];
 
 const runMigrations = async () => {
