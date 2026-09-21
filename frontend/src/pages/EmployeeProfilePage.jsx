@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useLeave } from "../context/useLeave";
 import { Link } from "react-router-dom";
 import {
@@ -12,13 +13,55 @@ import {
   User,
 } from "lucide-react";
 import { isSuperiorAdmin } from "../services/auth";
+import { getLeaveBalances } from "../services/api";
 
 export const EmployeeProfilePage = () => {
   const { currentUser, loggedInUser } = useLeave();
 
   const user = loggedInUser || currentUser;
   const isSuperior = isSuperiorAdmin(user);
-  const balances = Object.entries(currentUser.leaveBalances);
+
+  const [backendBalances, setBackendBalances] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (user?.id) {
+      getLeaveBalances(user.id)
+        .then((res) => {
+          if (isMounted && res) {
+            setBackendBalances(res.data || res);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  // Compute displayed balances
+  const balances = backendBalances?.balancesList?.length > 0
+    ? backendBalances.balancesList.map((b) => [
+        b.code || b.name,
+        {
+          name: b.name,
+          total: b.quota,
+          used: b.used,
+          remaining: b.remaining,
+          unit: b.unit,
+        },
+      ])
+    : Object.entries(currentUser?.leaveBalances || {}).map(([k, v]) => [
+        k,
+        {
+          name: v.name,
+          total: v.total,
+          used: v.used ?? 0,
+          remaining: (v.total ?? 0) - (v.used ?? 0),
+          unit: k === "timePermission" ? "hours" : "days",
+        },
+      ]);
+
 
   return (
     <div className="profile-page-container">
@@ -163,9 +206,9 @@ export const EmployeeProfilePage = () => {
 
           <div className="balance-grid" style={{ marginTop: "1rem" }}>
             {balances.map(([key, item]) => {
-              const remaining = item.total - item.used;
-              const percentageUsed = Math.round((item.used / item.total) * 100);
-              const isHours = key === "timePermission";
+              const remaining = item.remaining !== undefined ? item.remaining : Math.max(0, item.total - item.used);
+              const percentageUsed = item.total > 0 ? Math.min(100, Math.round((item.used / item.total) * 100)) : 0;
+              const isHours = item.unit === "hours" || key === "timePermission" || key === "TIME_PERMISSION";
 
               return (
                 <div key={key} className="balance-card">

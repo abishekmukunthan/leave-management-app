@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useLeave } from "../context/useLeave";
 import { StatusBadge } from "../components/StatusBadge";
-import { getMyLeaves, getSubstituteRequests, DEMO_USERS } from "../services/api";
+import { getMyLeaves, getSubstituteRequests, getLeaveBalances, DEMO_USERS } from "../services/api";
 import {
   formatDateOnly,
   formatAppliedDate,
@@ -29,6 +29,7 @@ export const EmployeeDashboard = () => {
 
   const [leaves, setLeaves] = useState([]);
   const [substituteRequests, setSubstituteRequests] = useState([]);
+  const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,10 +37,14 @@ export const EmployeeDashboard = () => {
     Promise.allSettled([
       getMyLeaves(applicantId),
       getSubstituteRequests(applicantId),
-    ]).then(([leavesRes, subRes]) => {
+      getLeaveBalances(applicantId),
+    ]).then(([leavesRes, subRes, balRes]) => {
       if (isMounted) {
         if (leavesRes.status === "fulfilled") setLeaves(leavesRes.value.data || []);
         if (subRes.status === "fulfilled") setSubstituteRequests(subRes.value.data || []);
+        if (balRes.status === "fulfilled" && balRes.value) {
+          setBalances(balRes.value.data || balRes.value);
+        }
         setLoading(false);
       }
     });
@@ -53,6 +58,27 @@ export const EmployeeDashboard = () => {
   const pendingSubstituteRequests = substituteRequests.filter(
     (r) => r.substitute_status === "Waiting for Substitute Approval" || r.substitute_status === "Pending"
   );
+
+  const annual = balances?.annual || balances?.annualLeave || {
+    quota: currentUser?.leaveBalances?.annualLeave?.total ?? 15,
+    used: 0,
+    remaining: currentUser?.leaveBalances?.annualLeave?.total ?? 15,
+  };
+  const sick = balances?.sick || balances?.sickLeave || {
+    quota: currentUser?.leaveBalances?.sickLeave?.total ?? 10,
+    used: 0,
+    remaining: currentUser?.leaveBalances?.sickLeave?.total ?? 10,
+  };
+  const casual = balances?.casual || balances?.casualLeave || {
+    quota: currentUser?.leaveBalances?.casualLeave?.total ?? 6,
+    used: 0,
+    remaining: currentUser?.leaveBalances?.casualLeave?.total ?? 6,
+  };
+  const timePerm = balances?.timePermission || {
+    quota: currentUser?.leaveBalances?.timePermission?.total ?? 6,
+    used: 0,
+    remaining: currentUser?.leaveBalances?.timePermission?.total ?? 6,
+  };
 
   return (
     <div className="dashboard-page">
@@ -103,13 +129,18 @@ export const EmployeeDashboard = () => {
               <span className="balance-type">Annual Leave</span>
             </div>
             <div className="balance-values">
-              <span className="balance-available">{currentUser.leaveBalances.annualLeave.total - currentUser.leaveBalances.annualLeave.used}</span>
-              <span className="balance-total">/ {currentUser.leaveBalances.annualLeave.total} Days Left</span>
+              <span className="balance-available">{annual.remaining}</span>
+              <span className="balance-total">{`/ ${annual.quota} Days Left`}</span>
             </div>
             <div className="progress-bar">
-              <div className="progress-fill fill-annual" style={{ width: `${(currentUser.leaveBalances.annualLeave.used / currentUser.leaveBalances.annualLeave.total) * 100}%` }}></div>
+              <div
+                className="progress-fill fill-annual"
+                style={{
+                  width: `${annual.quota > 0 ? Math.min(100, (annual.used / annual.quota) * 100) : 0}%`,
+                }}
+              ></div>
             </div>
-            <span className="balance-caption">{currentUser.leaveBalances.annualLeave.used} days consumed</span>
+            <span className="balance-caption">{annual.used} days consumed</span>
           </div>
 
           <div className="balance-card">
@@ -120,13 +151,18 @@ export const EmployeeDashboard = () => {
               <span className="balance-type">Sick Leave</span>
             </div>
             <div className="balance-values">
-              <span className="balance-available">{currentUser.leaveBalances.sickLeave.total - currentUser.leaveBalances.sickLeave.used}</span>
-              <span className="balance-total">/ {currentUser.leaveBalances.sickLeave.total} Days Left</span>
+              <span className="balance-available">{sick.remaining}</span>
+              <span className="balance-total">{`/ ${sick.quota} Days Left`}</span>
             </div>
             <div className="progress-bar">
-              <div className="progress-fill fill-sick" style={{ width: `${(currentUser.leaveBalances.sickLeave.used / currentUser.leaveBalances.sickLeave.total) * 100}%` }}></div>
+              <div
+                className="progress-fill fill-sick"
+                style={{
+                  width: `${sick.quota > 0 ? Math.min(100, (sick.used / sick.quota) * 100) : 0}%`,
+                }}
+              ></div>
             </div>
-            <span className="balance-caption">{currentUser.leaveBalances.sickLeave.used} days consumed</span>
+            <span className="balance-caption">{sick.used} days consumed</span>
           </div>
 
           <div className="balance-card">
@@ -137,13 +173,18 @@ export const EmployeeDashboard = () => {
               <span className="balance-type">Casual Leave</span>
             </div>
             <div className="balance-values">
-              <span className="balance-available">{currentUser.leaveBalances.casualLeave.total - currentUser.leaveBalances.casualLeave.used}</span>
-              <span className="balance-total">/ {currentUser.leaveBalances.casualLeave.total} Days Left</span>
+              <span className="balance-available">{casual.remaining}</span>
+              <span className="balance-total">{`/ ${casual.quota} Days Left`}</span>
             </div>
             <div className="progress-bar">
-              <div className="progress-fill fill-casual" style={{ width: `${(currentUser.leaveBalances.casualLeave.used / currentUser.leaveBalances.casualLeave.total) * 100}%` }}></div>
+              <div
+                className="progress-fill fill-casual"
+                style={{
+                  width: `${casual.quota > 0 ? Math.min(100, (casual.used / casual.quota) * 100) : 0}%`,
+                }}
+              ></div>
             </div>
-            <span className="balance-caption">{currentUser.leaveBalances.casualLeave.used} days consumed</span>
+            <span className="balance-caption">{casual.used} days consumed</span>
           </div>
 
           <div className="balance-card">
@@ -154,16 +195,22 @@ export const EmployeeDashboard = () => {
               <span className="balance-type">Time Permission</span>
             </div>
             <div className="balance-values">
-              <span className="balance-available">{currentUser.leaveBalances.timePermission.total - currentUser.leaveBalances.timePermission.used}</span>
-              <span className="balance-total">/ {currentUser.leaveBalances.timePermission.total} Hours Left</span>
+              <span className="balance-available">{timePerm.remaining}</span>
+              <span className="balance-total">{`/ ${timePerm.quota} Hours Left`}</span>
             </div>
             <div className="progress-bar">
-              <div className="progress-fill fill-time" style={{ width: `${(currentUser.leaveBalances.timePermission.used / currentUser.leaveBalances.timePermission.total) * 100}%` }}></div>
+              <div
+                className="progress-fill fill-time"
+                style={{
+                  width: `${timePerm.quota > 0 ? Math.min(100, (timePerm.used / timePerm.quota) * 100) : 0}%`,
+                }}
+              ></div>
             </div>
-            <span className="balance-caption">{currentUser.leaveBalances.timePermission.used} hours used this month</span>
+            <span className="balance-caption">{timePerm.used} hours used this month</span>
           </div>
         </div>
       </section>
+
 
       {/* Summary Metrics */}
       <section className="summary-banner">

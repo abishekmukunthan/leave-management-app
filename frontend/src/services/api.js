@@ -153,6 +153,12 @@ export const getSubstituteEmployees = async (employeeId = null, search = "") => 
   return await fetchJson(`/api/leaves/substitute-employees${qs ? `?${qs}` : ""}`);
 };
 
+// 2c. GET /api/leaves/balances?employee_id=USER_ID - Get real leave balances
+export const getLeaveBalances = async (employeeId) => {
+  return await fetchJson(`/api/leaves/balances?employee_id=${encodeURIComponent(employeeId)}`);
+};
+
+
 // 3. GET /api/substitute-requests?employee_id=USER_ID
 export const getSubstituteRequests = async (employeeId) => {
   return await fetchJson(

@@ -10,12 +10,12 @@ export const initialCurrentUser = {
   employmentType: "Full-time / Permanent",
   avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
   leaveBalances: {
-    annualLeave: { used: 3, total: 15, name: "Annual Leave" },
-    sickLeave: { used: 2, total: 10, name: "Sick Leave" },
-    casualLeave: { used: 2, total: 6, name: "Casual Leave" },
+    annualLeave: { used: 0, total: 15, name: "Annual Leave" },
+    sickLeave: { used: 0, total: 10, name: "Sick Leave" },
+    casualLeave: { used: 0, total: 6, name: "Casual Leave" },
     emergencyLeave: { used: 0, total: 3, name: "Emergency Leave" },
-    halfDayLeave: { used: 1, total: 4, name: "Half Day Leave" },
-    timePermission: { used: 2, total: 6, name: "Time Permission (Hrs)" },
+    halfDayLeave: { used: 0, total: 4, name: "Half Day Leave" },
+    timePermission: { used: 0, total: 6, name: "Time Permission (Hrs)" },
   }
 };
 

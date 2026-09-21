@@ -241,6 +241,14 @@ export const adminDao = {
             "UPDATE employee_leave_entitlements SET used = $1, remaining = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3",
             [newUsed, newRemaining, currentEnt.id]
           );
+        } else {
+          const ltRes2 = await client.query("SELECT default_quota FROM leave_types WHERE id = $1", [leaveTypeId]);
+          const defaultQuota = ltRes2.rows.length > 0 ? (parseFloat(ltRes2.rows[0].default_quota) || 0) : deductFromQuota;
+          const newRemaining = Math.max(0, defaultQuota - deductFromQuota);
+          await client.query(
+            "INSERT INTO employee_leave_entitlements (employee_id, leave_type_id, allocated, used, remaining, year) VALUES ($1, $2, $3, $4, $5, $6)",
+            [employeeId, leaveTypeId, defaultQuota, deductFromQuota, newRemaining, currentYear]
+          );
         }
       }
 

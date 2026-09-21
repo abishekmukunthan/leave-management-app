@@ -280,4 +280,34 @@ export const leaveController = {
       });
     }
   },
+
+  // GET /api/leaves/balances?employee_id=USER_ID
+  async getLeaveBalances(req, res) {
+    try {
+      const { employee_id } = req.query;
+
+      if (!employee_id) {
+        return res.status(400).json({
+          error: "employee_id query parameter is required (e.g. ?employee_id=USER_UUID)",
+        });
+      }
+
+      const balances = await leaveDao.getEmployeeLeaveBalances(employee_id);
+      return res.status(200).json({
+        data: balances,
+        annual: balances.annual,
+        sick: balances.sick,
+        casual: balances.casual,
+        timePermission: balances.timePermission,
+        ...balances,
+      });
+    } catch (error) {
+      console.error("Error fetching employee leave balances:", error);
+      return res.status(500).json({
+        error: "Failed to fetch employee leave balances",
+        details: error.message,
+      });
+    }
+  },
 };
+
