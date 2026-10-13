@@ -1,0 +1,92 @@
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Database Service (PostgreSQL 16)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: arogya_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-leave_management}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-leave_management}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - leave_network
+
+  # ----------------------------------------------------------------------------
+  # 2. Backend API Service (Node.js + Express)
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: arogya-leave-backend:latest
+    container_name: arogya_backend
+    restart: unless-stopped
+    environment:
+      PORT: 5001
+      NODE_ENV: ${NODE_ENV:-development}
+      # Database connection settings (fallback to internal postgres service)
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${POSTGRES_DB:-leave_management}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_SSL: ${DB_SSL:-false}
+      # Optional external database connection (e.g. Supabase hosted PostgreSQL)
+      DATABASE_URL: ${DATABASE_URL:-}
+      # Authentication & Security
+      JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_here}
+      # CORS allowed frontend origin
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost,http://localhost:80,http://localhost:3000}
+    ports:
+      - "${BACKEND_PORT:-5001}:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - leave_network
+
+  # ----------------------------------------------------------------------------
+  # 3. Frontend Web Service (React + Vite + Nginx)
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Browser-reachable backend API endpoint
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5001/api}
+        VITE_SHOW_DEMO_CREDENTIALS: ${VITE_SHOW_DEMO_CREDENTIALS:-false}
+    image: arogya-leave-frontend:latest
+    container_name: arogya_frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
+    networks:
+      - leave_network
+
+# ------------------------------------------------------------------------------
+# Persistent Storage Volumes
+# ------------------------------------------------------------------------------
+volumes:
+  postgres_data:
+    driver: local
+
+# ------------------------------------------------------------------------------
+# Internal Bridge Network
+# ------------------------------------------------------------------------------
+networks:
+  leave_network:
+    driver: bridge

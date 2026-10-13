@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CalendarPage } from "../pages/CalendarPage";
 import { LeaveProvider } from "../context/LeaveContext";
@@ -22,6 +22,8 @@ describe("CalendarPage Date Details Modal", () => {
   };
 
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 8, 15)); // September 15, 2026
     vi.restoreAllMocks();
     vi.spyOn(auth, "getStoredUser").mockReturnValue(mockUser);
     vi.spyOn(auth, "isSuperiorAdmin").mockReturnValue(true);
@@ -38,6 +40,10 @@ describe("CalendarPage Date Details Modal", () => {
         },
       ],
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("should open modal on date click and display ONLY total leave box and scrollable table", async () => {

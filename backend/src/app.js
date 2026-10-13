@@ -14,6 +14,9 @@ const app = express();
 
 // CORS Configuration
 const defaultAllowedOrigins = [
+  "http://localhost",
+  "http://localhost:80",
+  "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:5174",
 ];
@@ -21,9 +24,13 @@ const defaultAllowedOrigins = [
 const getAllowedOrigins = () => {
   const origins = [...defaultAllowedOrigins];
   if (process.env.FRONTEND_URL) {
-    const configured = process.env.FRONTEND_URL.trim().replace(/\/+$/, "");
-    if (configured && !origins.includes(configured)) {
-      origins.push(configured);
+    const configuredList = process.env.FRONTEND_URL.split(",")
+      .map((url) => url.trim().replace(/\/+$/, ""))
+      .filter(Boolean);
+    for (const url of configuredList) {
+      if (!origins.includes(url)) {
+        origins.push(url);
+      }
     }
   }
   return origins;

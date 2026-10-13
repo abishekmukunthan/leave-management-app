@@ -59,6 +59,21 @@ npm run dev
 # Portal running at http://localhost:5173
 ```
 
+### 3. Docker Compose (Full Stack with PostgreSQL)
+```bash
+cp .env.example .env
+docker compose up --build -d
+
+# Run safe database migrations
+docker compose run --rm backend npm run migrate
+
+# (Optional) Seed demo users
+docker compose run --rm backend npm run db:seed
+```
+- Frontend: `http://localhost`
+- Backend API: `http://localhost:5001/`
+- See [DOCKER_DEPLOYMENT.md](./DOCKER_DEPLOYMENT.md) for complete production Docker Hub and VPS deployment guide.
+
 ---
 
 ## 🔑 Pre-Configured Demo Test Credentials

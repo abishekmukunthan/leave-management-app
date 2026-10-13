@@ -9,10 +9,28 @@ pg.types.setTypeParser(1082, (value) => value);
 
 const { Pool } = pg;
 
+const getDatabaseSslConfig = () => {
+  if (process.env.DB_SSL === "false" || process.env.DB_SSL === "disable") {
+    return false;
+  }
+  if (process.env.DATABASE_URL) {
+    if (process.env.DATABASE_URL.includes("sslmode=disable")) {
+      return false;
+    }
+    return { rejectUnauthorized: false };
+  }
+  if (process.env.DB_SSL === "true" || process.env.DB_SSL === "require") {
+    return { rejectUnauthorized: false };
+  }
+  return false;
+};
+
+const sslConfig = getDatabaseSslConfig();
+
 const poolConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      ...(sslConfig ? { ssl: sslConfig } : {}),
     }
   : {
       user: process.env.DB_USER || "postgres",
@@ -20,6 +38,7 @@ const poolConfig = process.env.DATABASE_URL
       database: process.env.DB_NAME || "leave_management",
       password: process.env.DB_PASSWORD || "postgres",
       port: parseInt(process.env.DB_PORT, 10) || 5432,
+      ...(sslConfig ? { ssl: sslConfig } : {}),
     };
 
 const pool = new Pool(poolConfig);
