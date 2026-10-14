@@ -1,5 +1,5 @@
 # Production stack for leave-app.arogya.life on Web-Hosting-App1
-# Compatible with older docker-compose (hyphen) on Ubuntu 18.04.
+# Compatible with older docker-compose (Python 2 / Ubuntu 18.04).
 #
 # Usage (from /arogya/apps/leave-app):
 #   cp deploy/env.production.example .env
@@ -7,7 +7,7 @@
 #   docker-compose -f docker-compose.prod.yml up -d --build
 #   docker-compose -f docker-compose.prod.yml run --rm backend npm run migrate
 
-version: "2.4"
+version: "3.3"
 
 services:
   postgres:
@@ -22,11 +22,6 @@ services:
       - leave_app_pgdata:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:${POSTGRES_PORT}:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       - leave_app_network
 
@@ -52,8 +47,7 @@ services:
     ports:
       - "127.0.0.1:${BACKEND_PORT}:5001"
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
     networks:
       - leave_app_network
 
