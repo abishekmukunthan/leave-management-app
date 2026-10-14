@@ -1,11 +1,13 @@
 # Production stack for leave-app.arogya.life on Web-Hosting-App1
-# Runs alongside other Arogya microservices without claiming host :80 / :443.
+# Compatible with older docker-compose (hyphen) on Ubuntu 18.04.
 #
 # Usage (from /arogya/apps/leave-app):
 #   cp deploy/env.production.example .env
 #   nano .env
-#   docker compose -f docker-compose.prod.yml up -d --build
-#   docker compose -f docker-compose.prod.yml run --rm backend npm run migrate
+#   docker-compose -f docker-compose.prod.yml up -d --build
+#   docker-compose -f docker-compose.prod.yml run --rm backend npm run migrate
+
+version: "2.4"
 
 services:
   postgres:
@@ -13,18 +15,18 @@ services:
     container_name: leave_app_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-leave_management}
-      POSTGRES_USER: ${POSTGRES_USER:-leave_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - leave_app_pgdata:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-leave_user} -d ${POSTGRES_DB:-leave_management}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     networks:
       - leave_app_network
 
@@ -32,7 +34,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: ${BACKEND_IMAGE:-abishekmukunthan/arogya-leave-backend:latest}
+    image: abishekmukunthan/arogya-leave-backend:latest
     container_name: leave_app_backend
     restart: unless-stopped
     environment:
@@ -40,15 +42,15 @@ services:
       NODE_ENV: production
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-leave_management}
-      DB_USER: ${POSTGRES_USER:-leave_user}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      DB_SSL: ${DB_SSL:-false}
-      DATABASE_URL: ${DATABASE_URL:-}
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
-      FRONTEND_URL: ${FRONTEND_URL:-https://leave-app.arogya.life}
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_SSL: ${DB_SSL}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
     ports:
-      - "127.0.0.1:${BACKEND_PORT:-5001}:5001"
+      - "127.0.0.1:${BACKEND_PORT}:5001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,13 +62,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-https://leave-app.arogya.life/api}
-        VITE_SHOW_DEMO_CREDENTIALS: ${VITE_SHOW_DEMO_CREDENTIALS:-false}
-    image: ${FRONTEND_IMAGE:-abishekmukunthan/arogya-leave-frontend:latest}
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_SHOW_DEMO_CREDENTIALS: ${VITE_SHOW_DEMO_CREDENTIALS}
+    image: abishekmukunthan/arogya-leave-frontend:latest
     container_name: leave_app_frontend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-3300}:80"
+      - "127.0.0.1:${FRONTEND_PORT}:80"
     depends_on:
       - backend
     networks:
@@ -74,7 +76,6 @@ services:
 
 volumes:
   leave_app_pgdata:
-    driver: local
 
 networks:
   leave_app_network:
