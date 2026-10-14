@@ -1,4 +1,4 @@
-# Production stack for leave-app.arogya.life on Web-Hosting-App1
+# Production stack for leave.arogya.life on Web-Hosting-App1
 # Compatible with older docker-compose (Python 2 / Ubuntu 18.04).
 #
 # Usage (from /arogya/apps/leave-app):
